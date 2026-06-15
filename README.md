@@ -101,3 +101,37 @@ Each provider event maps into a common structure:
 - Search performance: interactive filtering remains responsive on large local datasets
 - Presentation quality: analysts can move from summary to raw evidence in <5 key actions
 - Reliability: checkpoints prevent duplicate floods and support restart recovery
+
+## Phase 0 Foundation Setup
+
+### Requirements
+- Python 3.11+
+- A Microsoft Entra app registration for delegated and/or app-only access
+- Optional local keyring backend if you want secrets stored outside environment variables
+
+### Install
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+### Configure
+1. Copy `config.example.toml` to `config.toml`.
+2. Fill in your tenant ID, client IDs, scopes, and provider settings.
+3. Store secrets with either:
+   - environment variables such as `TERMINALVELOCITY_CLIENT_SECRET`, or
+   - keyring entries referenced from the TOML config.
+
+### Phase 0 package layout
+- `src/terminalvelocity/config.py` – TOML loading, validation, and secret resolution
+- `src/terminalvelocity/auth.py` – MSAL device code and client credentials scaffolding
+- `src/terminalvelocity/schema.py` – normalized event schema shared by all providers
+- `src/terminalvelocity/providers/base.py` – provider adapter contract
+- `src/terminalvelocity/persistence.py` – SQLite checkpoints and raw-event cache
+
+### Notes
+- This phase provides the shared foundation for later providers and the Textual TUI.
+- Runtime secrets should not be committed; `config.toml` is gitignored by default.
+- SQLite persistence is local-first and designed for provider checkpoint recovery and raw-event replay.

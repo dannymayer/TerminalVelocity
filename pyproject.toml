@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "terminalvelocity"
+version = "0.1.0"
+description = "Terminal log viewer foundations for Microsoft 365."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "TerminalVelocity contributors" },
+]
+dependencies = [
+  "textual>=0.76.0,<1.0.0",
+  "msal>=1.31.0,<2.0.0",
+  "pydantic>=2.8.2,<3.0.0",
+  "keyring>=25.2.1,<26.0.0",
+]
+keywords = ["m365", "microsoft-365", "security", "tui", "logs"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Security",
+  "Topic :: System :: Logging",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
