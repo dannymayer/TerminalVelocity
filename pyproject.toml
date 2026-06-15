@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "terminalvelocity"
+version = "0.1.0"
+description = "TerminalVelocity Phase 1 core TUI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "textual==8.2.7",
+]
+
+[project.scripts]
+terminalvelocity = "terminalvelocity.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
