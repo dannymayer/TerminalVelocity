@@ -1,0 +1,22 @@
+rules:
+  - name: "Privileged role assignment"
+    match:
+      action: "Add member to role"
+      severity: [high, critical]
+    highlight: red
+    alert: true
+
+  - name: "Repeated sign-in failures"
+    match:
+      action: "SignIn"
+      result: failure
+      provider: entra
+    highlight: yellow
+    alert: false
+
+  - name: "Defender critical incidents"
+    match:
+      provider: defender
+      severity: critical
+    highlight: magenta
+    alert: true
