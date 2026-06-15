@@ -1,121 +1,75 @@
-"""Normalized event schema shared by all TerminalVelocity providers."""
+"""Schema stubs included so the Phase 1 search branch is reviewable on its own."""
 
 from __future__ import annotations
 
+import hashlib
 import json
-from collections.abc import Mapping
-from datetime import datetime, timezone
-from enum import StrEnum
-from hashlib import sha256
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class ActorType(StrEnum):
-    """Supported actor identities for normalized events."""
-
-    USER = "user"
-    APPLICATION = "application"
-    SERVICE_PRINCIPAL = "service_principal"
-    SERVICE = "service"
-    UNKNOWN = "unknown"
-
-
-class ResultType(StrEnum):
-    """Common success/failure states across providers."""
-
-    SUCCESS = "success"
-    FAILURE = "failure"
-    UNKNOWN = "unknown"
-
-
-class Severity(StrEnum):
-    """Shared severity vocabulary for normalized events."""
-
-    INFORMATIONAL = "informational"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class Actor(BaseModel):
-    """Identity that initiated the normalized event."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    type: ActorType = ActorType.UNKNOWN
-    id: str | None = None
-    display_name: str | None = None
-    user_principal_name: str | None = None
-    app_id: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class Target(BaseModel):
-    """Resource or object acted upon by the event."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    type: str | None = None
-    id: str | None = None
-    display_name: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
 class NormalizedEvent(BaseModel):
-    """Canonical event shape consumed by the TUI and persistence layers."""
+    """Cross-provider event structure used by search and correlation features."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     timestamp: datetime
     provider: str
     service: str
-    tenant_id: str
-    actor: Actor | None = None
+    tenant_id: str | None = None
+    actor: str | None = None
     action: str
-    target: Target | None = None
-    result: ResultType = ResultType.UNKNOWN
-    severity: Severity | None = None
+    target: str | None = None
+    result: Literal["success", "failure"] | str | None = None
+    severity: str | None = None
     correlation_id: str | None = None
     request_id: str | None = None
-    raw: dict[str, Any]
+    raw: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("timestamp")
+    @field_validator("timestamp", mode="before")
     @classmethod
-    def ensure_timezone(cls, value: datetime) -> datetime:
-        """Ensure persisted timestamps are always timezone-aware."""
+    def _normalize_timestamp(cls, value: datetime | str) -> datetime:
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
-    @field_validator("provider", "service", "tenant_id", "action")
+    @field_validator("result", mode="before")
     @classmethod
-    def require_text(cls, value: str) -> str:
-        """Reject blank text for core event fields."""
-        normalized = value.strip()
-        if not normalized:
-            msg = "Core event fields cannot be blank."
-            raise ValueError(msg)
-        return normalized
+    def _normalize_result(cls, value: str | None) -> str | None:
+        return value.lower() if isinstance(value, str) else value
 
-    def cache_key(self) -> str:
-        """Return a stable cache key derived from normalized and raw payload data."""
+    def raw_json(self) -> str:
+        return json.dumps(self.raw, sort_keys=True, default=str)
+
+    def stable_id(self) -> str:
         payload = {
             "timestamp": self.timestamp.isoformat(),
             "provider": self.provider,
             "service": self.service,
             "tenant_id": self.tenant_id,
+            "actor": self.actor,
+            "action": self.action,
+            "target": self.target,
+            "result": self.result,
+            "severity": self.severity,
             "correlation_id": self.correlation_id,
             "request_id": self.request_id,
-            "action": self.action,
             "raw": self.raw,
         }
-        encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
-        return sha256(encoded).hexdigest()
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
-    @classmethod
-    def from_raw(cls, payload: Mapping[str, Any]) -> "NormalizedEvent":
-        """Validate a provider-produced event mapping."""
-        return cls.model_validate(dict(payload))
+    def cache_key(self) -> str:
+        return self.stable_id()
+
+
+class ProviderCheckpoint(BaseModel):
+    """Minimal checkpoint schema kept for review branch compatibility."""
+
+    provider: str
+    cursor: str | None = None
+    last_event_time: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
