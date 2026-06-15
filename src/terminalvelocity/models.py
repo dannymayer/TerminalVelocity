@@ -1,4 +1,4 @@
-"""TerminalVelocity package."""
+"""Compatibility imports for modules expecting terminalvelocity.models."""
 
 from terminalvelocity.schema import NormalizedEvent, ProviderCheckpoint
 
