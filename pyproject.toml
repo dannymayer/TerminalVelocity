@@ -10,7 +10,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "pydantic==2.10.6",
+  "PyYAML==6.0.2",
+  "textual==8.2.7",
 ]
+
+[project.scripts]
+terminalvelocity = "terminalvelocity.__main__:main"
 
 [project.optional-dependencies]
 dev = [
