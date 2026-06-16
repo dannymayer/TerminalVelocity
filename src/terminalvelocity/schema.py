@@ -42,8 +42,38 @@ class NormalizedEvent(BaseModel):
     def _normalize_result(cls, value: str | None) -> str | None:
         return value.lower() if isinstance(value, str) else value
 
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, value: str | None) -> str | None:
+        return value.lower() if isinstance(value, str) else value
+
+    def to_record(self) -> dict[str, Any]:
+        record = self.model_dump(mode="json")
+        record["timestamp"] = self.timestamp.isoformat()
+        return record
+
+    def normalized_json(self) -> str:
+        return json.dumps(self.to_record(), indent=2, sort_keys=True)
+
     def raw_json(self) -> str:
         return json.dumps(self.raw, sort_keys=True, default=str)
+
+    def searchable_text(self) -> str:
+        raw_blob = json.dumps(self.raw, sort_keys=True, default=str)
+        fields = [
+            self.timestamp.isoformat(),
+            self.provider,
+            self.service,
+            self.actor or "",
+            self.action,
+            self.target or "",
+            self.result or "",
+            self.severity or "",
+            self.correlation_id or "",
+            self.request_id or "",
+            raw_blob,
+        ]
+        return " ".join(fields).lower()
 
     def stable_id(self) -> str:
         payload = {
@@ -64,6 +94,18 @@ class NormalizedEvent(BaseModel):
 
     def cache_key(self) -> str:
         return self.stable_id()
+
+
+class ProviderStatus(BaseModel):
+    """Small provider status model for the Phase 1 TUI sidebar."""
+
+    provider: str
+    service: str
+    state: str
+    lag_seconds: int
+    error_count: int
+    enabled: bool
+    total_events: int
 
 
 class ProviderCheckpoint(BaseModel):

@@ -12,12 +12,16 @@ dependencies = [
   "httpx==0.28.1",
   "pydantic==2.10.6",
   "tenacity==9.0.0",
+  "textual==8.2.7",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest==8.3.4",
 ]
+
+[project.scripts]
+terminalvelocity = "terminalvelocity.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
