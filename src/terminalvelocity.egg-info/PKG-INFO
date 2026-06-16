@@ -7,11 +7,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: httpx==0.28.1
 Requires-Dist: pydantic==2.10.6
 Requires-Dist: PyYAML==6.0.2
-<<<<<<< HEAD
 Requires-Dist: tenacity==9.1.4
-=======
-Requires-Dist: tenacity==9.0.0
->>>>>>> origin/main
 Requires-Dist: textual==8.2.7
 Provides-Extra: dev
 Requires-Dist: pytest==8.3.4; extra == "dev"

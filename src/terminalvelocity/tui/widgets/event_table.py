@@ -92,6 +92,11 @@ class EventTable(Widget):
             table.move_cursor(row=table.row_count - 1, animate=False)
             self.post_message(self.EventHighlighted(self.current_event()))
 
+    @property
+    def row_count(self) -> int:
+        """Number of rows currently displayed in the inner DataTable."""
+        return self.query_one(DataTable).row_count
+
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if 0 <= event.cursor_row < len(self._events):
             self.post_message(self.EventHighlighted(self._events[event.cursor_row]))

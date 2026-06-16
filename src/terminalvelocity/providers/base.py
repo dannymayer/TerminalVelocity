@@ -1,21 +1,22 @@
-<<<<<<< HEAD
 """Shared provider interfaces and lightweight HTTP clients for M365 ingestion."""
 
 from __future__ import annotations
 
+import json
+import logging
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
-import json
-import time
 from pathlib import Path
-from typing import Any
-from urllib import error, parse, request
+from typing import Any, AsyncIterator
 
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+import httpx
+from tenacity import AsyncRetrying, before_sleep_log, retry, retry_if_exception, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from terminalvelocity.schema import NormalizedEvent, ProviderCheckpoint
 
+LOGGER = logging.getLogger(__name__)
 
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 TERMINAL_QUERY_STATUSES = {"succeeded", "completed"}
@@ -23,7 +24,11 @@ PENDING_QUERY_STATUSES = {"notstarted", "queued", "running", "inprogress"}
 FAILED_QUERY_STATUSES = {"failed", "cancelled", "canceled"}
 
 
-class ProviderError(RuntimeError):
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+class ProviderError(Exception):
     """Base exception raised by provider adapters."""
 
 
@@ -35,6 +40,18 @@ class ProviderFetchError(ProviderError):
     """Raised when a provider cannot fetch or poll records."""
 
 
+class ProviderAuthError(ProviderError):
+    """Raised when authentication fails."""
+
+
+class TransientProviderError(ProviderError):
+    """Raised for retryable provider failures."""
+
+    def __init__(self, message: str, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 class APIRequestError(ProviderError):
     """Raised for HTTP/API failures that survive retry handling."""
 
@@ -43,6 +60,63 @@ class APIRequestError(ProviderError):
         self.status_code = status_code
         self.payload = payload
 
+
+# ---------------------------------------------------------------------------
+# Checkpoint & raw cache (async-style providers)
+# ---------------------------------------------------------------------------
+
+class CheckpointStore:
+    """Simple JSON checkpoint persistence per provider."""
+
+    def __init__(self, root: str | Path = ".terminalvelocity/checkpoints") -> None:
+        self.root = Path(root)
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _path(self, provider: str) -> Path:
+        return self.root / f"{provider}.json"
+
+    def load(self, provider: str) -> ProviderCheckpoint:
+        path = self._path(provider)
+        if not path.exists():
+            return ProviderCheckpoint(provider=provider)
+        return ProviderCheckpoint.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def save(self, checkpoint: ProviderCheckpoint) -> ProviderCheckpoint:
+        path = self._path(checkpoint.provider)
+        path.write_text(checkpoint.model_dump_json(indent=2), encoding="utf-8")
+        return checkpoint
+
+
+class RawLogCache:
+    """Optional JSONL raw payload cache for replay and troubleshooting."""
+
+    def __init__(self, root: str | Path = ".terminalvelocity/raw-cache") -> None:
+        self.root = Path(root)
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def append(self, provider: str, payloads: Iterable[Mapping[str, Any]]) -> Path:
+        provider_dir = self.root / provider
+        provider_dir.mkdir(parents=True, exist_ok=True)
+        path = provider_dir / f"{datetime.now(UTC).date().isoformat()}.jsonl"
+        with path.open("a", encoding="utf-8") as handle:
+            for payload in payloads:
+                handle.write(
+                    json.dumps(
+                        {
+                            "cached_at": datetime.now(UTC).isoformat(),
+                            "provider": provider,
+                            "payload": dict(payload),
+                        },
+                        default=str,
+                    )
+                )
+                handle.write("\n")
+        return path
+
+
+# ---------------------------------------------------------------------------
+# Synchronous JSON API client (used by phase-3 providers)
+# ---------------------------------------------------------------------------
 
 class JSONAPIClient:
     """Minimal JSON API client with tenacity-based retry and pagination."""
@@ -55,12 +129,14 @@ class JSONAPIClient:
         timeout: float = 30.0,
         opener: Any | None = None,
     ) -> None:
+        from urllib import request as urllib_request
         self.base_url = base_url.rstrip("/")
         self.headers = dict(headers)
         self.timeout = timeout
-        self._opener = opener or request.urlopen
+        self._opener = opener or urllib_request.urlopen
 
     def _build_url(self, path: str, params: Mapping[str, Any] | None = None) -> str:
+        from urllib import parse
         if path.startswith("http://") or path.startswith("https://"):
             url = path
         else:
@@ -79,9 +155,10 @@ class JSONAPIClient:
 
     @staticmethod
     def _is_retryable_exception(exc: BaseException) -> bool:
+        from urllib import error as urllib_error
         if isinstance(exc, APIRequestError) and exc.status_code in RETRYABLE_STATUS_CODES:
             return True
-        if isinstance(exc, error.URLError):
+        if isinstance(exc, urllib_error.URLError):
             return True
         return False
 
@@ -92,20 +169,21 @@ class JSONAPIClient:
         reraise=True,
     )
     def _request(self, method: str, path: str, *, params: Mapping[str, Any] | None = None, body: Any | None = None) -> Any:
+        from urllib import error as urllib_error, request as urllib_request
         url = self._build_url(path, params)
         payload: bytes | None = None
         headers = dict(self.headers)
         if body is not None:
             payload = json.dumps(body, default=str).encode("utf-8")
             headers.setdefault("Content-Type", "application/json")
-        http_request = request.Request(url, data=payload, headers=headers, method=method.upper())
+        http_request = urllib_request.Request(url, data=payload, headers=headers, method=method.upper())
         try:
             with self._opener(http_request, timeout=self.timeout) as response:
                 raw = response.read().decode("utf-8")
                 if not raw:
                     return None
                 return json.loads(raw)
-        except error.HTTPError as exc:
+        except urllib_error.HTTPError as exc:
             response_body = exc.read().decode("utf-8", errors="replace")
             try:
                 parsed_body = json.loads(response_body) if response_body else None
@@ -116,7 +194,7 @@ class JSONAPIClient:
                 status_code=exc.code,
                 payload=parsed_body,
             ) from exc
-        except error.URLError as exc:
+        except urllib_error.URLError as exc:
             raise APIRequestError(f"{method.upper()} {url} failed: {exc.reason}") from exc
 
     def get(self, path: str, *, params: Mapping[str, Any] | None = None) -> Any:
@@ -177,134 +255,20 @@ class MCASClient(JSONAPIClient):
         )
 
 
+# ---------------------------------------------------------------------------
+# Synchronous base provider (used by phase-3 providers)
+# ---------------------------------------------------------------------------
+
 class BaseProvider(ABC):
     """Common provider contract for time-window polling adapters."""
 
     provider_name = "provider"
     service_name = "service"
-=======
-"""Base classes and shared utilities for provider adapters."""
-
-from __future__ import annotations
-
-import json
-import logging
-from abc import ABC, abstractmethod
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
-from typing import Any, AsyncIterator, Iterable, Mapping
-
-import httpx
-from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type, stop_after_attempt
-
-from terminalvelocity.schema import NormalizedEvent, ProviderCheckpoint
-
-LOGGER = logging.getLogger(__name__)
-
-
-class ProviderError(Exception):
-    """Base provider exception."""
-
-
-class ProviderAuthError(ProviderError):
-    """Raised when authentication fails."""
-
-
-class TransientProviderError(ProviderError):
-    """Raised for retryable provider failures."""
-
-    def __init__(self, message: str, retry_after: float | None = None) -> None:
-        super().__init__(message)
-        self.retry_after = retry_after
-
-
-class CheckpointStore:
-    """Simple JSON checkpoint persistence per provider."""
-
-    def __init__(self, root: str | Path = ".terminalvelocity/checkpoints") -> None:
-        self.root = Path(root)
-        self.root.mkdir(parents=True, exist_ok=True)
-
-    def _path(self, provider: str) -> Path:
-        return self.root / f"{provider}.json"
-
-    def load(self, provider: str) -> ProviderCheckpoint:
-        path = self._path(provider)
-        if not path.exists():
-            return ProviderCheckpoint(provider=provider)
-        return ProviderCheckpoint.model_validate_json(path.read_text(encoding="utf-8"))
-
-    def save(self, checkpoint: ProviderCheckpoint) -> ProviderCheckpoint:
-        path = self._path(checkpoint.provider)
-        path.write_text(checkpoint.model_dump_json(indent=2), encoding="utf-8")
-        return checkpoint
-
-
-class RawLogCache:
-    """Optional JSONL raw payload cache for replay and troubleshooting."""
-
-    def __init__(self, root: str | Path = ".terminalvelocity/raw-cache") -> None:
-        self.root = Path(root)
-        self.root.mkdir(parents=True, exist_ok=True)
-
-    def append(self, provider: str, payloads: Iterable[Mapping[str, Any]]) -> Path:
-        provider_dir = self.root / provider
-        provider_dir.mkdir(parents=True, exist_ok=True)
-        path = provider_dir / f"{datetime.now(UTC).date().isoformat()}.jsonl"
-        with path.open("a", encoding="utf-8") as handle:
-            for payload in payloads:
-                handle.write(
-                    json.dumps(
-                        {
-                            "cached_at": datetime.now(UTC).isoformat(),
-                            "provider": provider,
-                            "payload": dict(payload),
-                        },
-                        default=str,
-                    )
-                )
-                handle.write("\n")
-        return path
-
-
-class ProviderAdapter(ABC):
-    """Shared asynchronous provider interface."""
-
-    @abstractmethod
-    async def connect(self) -> None:
-        """Authenticate and validate provider connectivity."""
-
-    @abstractmethod
-    async def fetch(
-        self,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-    ) -> list[NormalizedEvent]:
-        """Fetch and normalize events for the requested time window."""
-
-    @abstractmethod
-    def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
-        """Normalize a raw provider event."""
-
-    @abstractmethod
-    async def checkpoint(self, checkpoint: ProviderCheckpoint) -> ProviderCheckpoint:
-        """Persist checkpoint state for the provider."""
-
-
-class BaseProviderAdapter(ProviderAdapter):
-    """Base implementation for HTTP-backed provider adapters."""
-
-    provider_name = "base"
-    provider_scope = "https://graph.microsoft.com/.default"
-    connection_test_url: str | None = None
-    connection_test_params: dict[str, Any] | None = None
->>>>>>> origin/main
 
     def __init__(
         self,
         *,
         tenant_id: str,
-<<<<<<< HEAD
         access_token: str,
         graph_client: GraphAPIClient | None = None,
         raw_cache_path: str | Path | None = None,
@@ -461,7 +425,48 @@ class AuditLogQueryProvider(BaseProvider):
             return records
         finally:
             self.graph_client.delete(f"{self.audit_query_path}/{query_id}")
-=======
+
+
+# ---------------------------------------------------------------------------
+# Async base provider adapter (used by phase-2 providers in main)
+# ---------------------------------------------------------------------------
+
+class ProviderAdapter(ABC):
+    """Shared asynchronous provider interface."""
+
+    @abstractmethod
+    async def connect(self) -> None:
+        """Authenticate and validate provider connectivity."""
+
+    @abstractmethod
+    async def fetch(
+        self,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+    ) -> list[NormalizedEvent]:
+        """Fetch and normalize events for the requested time window."""
+
+    @abstractmethod
+    def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
+        """Normalize a raw provider event."""
+
+    @abstractmethod
+    async def checkpoint(self, checkpoint: ProviderCheckpoint) -> ProviderCheckpoint:
+        """Persist checkpoint state for the provider."""
+
+
+class BaseProviderAdapter(ProviderAdapter):
+    """Base implementation for HTTP-backed provider adapters."""
+
+    provider_name = "base"
+    provider_scope = "https://graph.microsoft.com/.default"
+    connection_test_url: str | None = None
+    connection_test_params: dict[str, Any] | None = None
+
+    def __init__(
+        self,
+        *,
+        tenant_id: str,
         client_id: str,
         client_secret: str,
         checkpoint_store: CheckpointStore | None = None,
@@ -513,12 +518,12 @@ class AuditLogQueryProvider(BaseProvider):
         start_time: datetime | None,
         end_time: datetime | None,
     ) -> tuple[datetime, datetime, ProviderCheckpoint]:
-        checkpoint = await self.get_checkpoint()
+        cp = await self.get_checkpoint()
         end = ensure_utc(end_time or datetime.now(UTC))
-        start = ensure_utc(start_time or checkpoint.last_event_time or (end - self.poll_window))
+        start = ensure_utc(start_time or cp.last_event_time or (end - self.poll_window))
         if start > end:
             raise ProviderError(f"Invalid polling window for {self.provider_name}: {start} > {end}")
-        return start, end, checkpoint
+        return start, end, cp
 
     async def _get_access_token(self, scope: str) -> str:
         cached = self._access_tokens.get(scope)
@@ -578,7 +583,7 @@ class AuditLogQueryProvider(BaseProvider):
             with attempt:
                 token = await self._get_access_token(scope)
                 request_headers = {
-                    "Authorization": f"Bearer {token}",
+                    "Authorization": f"******",
                     "Accept": "application/json",
                     "User-Agent": "TerminalVelocity/0.1.0",
                 }
@@ -643,6 +648,10 @@ class AuditLogQueryProvider(BaseProvider):
             self.raw_log_cache.append(self.provider_name, payloads)
 
 
+# ---------------------------------------------------------------------------
+# Shared utilities
+# ---------------------------------------------------------------------------
+
 def ensure_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
@@ -686,4 +695,3 @@ def _retry_wait(retry_state: Any) -> float:
     if isinstance(exception, TransientProviderError) and exception.retry_after is not None:
         return exception.retry_after
     return min(2 ** max(retry_state.attempt_number - 1, 0), 30)
->>>>>>> origin/main

@@ -10,7 +10,8 @@ KEY_BINDINGS = [
     Binding("G,end", "jump_bottom", "Bottom", show=False),
     Binding("h", "focus_previous", "Prev panel", show=False),
     Binding("l", "focus_next", "Next panel", show=False),
-    Binding("d,tab", "toggle_deep_detail", "Detail mode"),
+    Binding("z,tab", "toggle_deep_detail", "Deep detail"),
+    Binding("d", "toggle_detail_visible", "Toggle detail"),
     Binding("e", "export_json", "Export JSON"),
     Binding("c", "export_csv", "Export CSV"),
     Binding("question_mark", "show_help", "Help"),
@@ -22,7 +23,7 @@ HELP_TEXT = """
 
 [cyan]/[/cyan] focus query   [cyan]j/k[/cyan] or arrows move rows
 [cyan]h/l[/cyan] switch focus panels   [cyan]g/G[/cyan] jump top/bottom
-[cyan]d[/cyan] toggle overview vs deep detail
+[cyan]z[/cyan] toggle deep detail mode   [cyan]d[/cyan] toggle detail panel visibility
 [cyan]e[/cyan] export filtered rows to JSON   [cyan]c[/cyan] export filtered rows to CSV
 [cyan]?[/cyan] show help   [cyan]q[/cyan] quit
 """.strip()
