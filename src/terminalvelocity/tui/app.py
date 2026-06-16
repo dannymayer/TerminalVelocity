@@ -88,10 +88,16 @@ class TerminalVelocityApp(App[None]):
         self.seed = seed
         self.count = count
         self.deep_detail = False
+        self.detail_visible = True
         self.last_export: str | None = None
         self.provider_statuses: list[ProviderStatus] = []
         self.events: list[NormalizedEvent] = []
         self.filtered_events: list[NormalizedEvent] = []
+
+    @property
+    def detail_mode(self) -> str:
+        """Return 'deep' when deep-detail mode is active, else 'overview'."""
+        return "deep" if self.deep_detail else "overview"
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -135,6 +141,12 @@ class TerminalVelocityApp(App[None]):
             self.remove_class("deep-mode")
         self.update_status_line()
 
+    def action_toggle_detail_visible(self) -> None:
+        self.detail_visible = not self.detail_visible
+        for panel in self.query(DetailPanel):
+            panel.display = self.detail_visible
+        self.update_status_line()
+
     def action_show_help(self) -> None:
         self.push_screen(HelpScreen())
 
@@ -163,7 +175,7 @@ class TerminalVelocityApp(App[None]):
             self.update_detail_panels(None)
 
     def update_status_line(self) -> None:
-        mode = "deep-detail" if self.deep_detail else "overview"
+        mode = self.detail_mode
         bar = self.query_one(QueryBar)
         bar.update_status(
             result_count=len(self.filtered_events),
@@ -299,6 +311,41 @@ def generate_mock_dataset(*, seed: int, count: int) -> tuple[list[NormalizedEven
         for provider, service in PROVIDER_CATALOG
     ]
     return events, statuses
+
+
+def generate_mock_events(*, seed: int, count: int) -> list[NormalizedEvent]:
+    """Return only the events portion of :func:`generate_mock_dataset`."""
+    events, _ = generate_mock_dataset(seed=seed, count=count)
+    return events
+
+
+def filter_events(events: list[NormalizedEvent], query: str, scope: str) -> list[NormalizedEvent]:
+    """Standalone filter used in tests and headless contexts."""
+    cutoff = None
+    delta = TIME_SCOPES.get(scope)
+    if delta is not None:
+        cutoff = datetime.now(tz=UTC) - delta
+    tokens = [token for token in query.split() if token]
+    filtered: list[NormalizedEvent] = []
+    for event in events:
+        if cutoff and event.timestamp < cutoff:
+            continue
+        searchable = event.searchable_text()
+        match = True
+        for token in tokens:
+            if ":" in token:
+                field, expected = token.split(":", 1)
+                value = getattr(event, field, None)
+                if value is None or expected.lower() not in str(value).lower():
+                    match = False
+                    break
+            elif token.lower() not in searchable:
+                match = False
+                break
+        if match:
+            filtered.append(event)
+    filtered.sort(key=lambda item: item.timestamp, reverse=True)
+    return filtered
 
 
 async def run_headless_smoke(*, seed: int = 365, count: int = 24) -> None:

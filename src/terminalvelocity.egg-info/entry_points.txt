@@ -1,0 +1,2 @@
+[console_scripts]
+terminalvelocity = terminalvelocity.__main__:main

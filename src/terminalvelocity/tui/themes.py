@@ -90,12 +90,12 @@ Footer {
     width: 44;
     min-width: 40;
     margin-left: 1;
+    display: none;
 }
 
 #detail-bottom {
     height: 18;
     margin-top: 1;
-    display: none;
 }
 
 .deep-mode #detail-right {
@@ -103,7 +103,7 @@ Footer {
 }
 
 .deep-mode #detail-bottom {
-    display: block;
+    height: 28;
 }
 
 #help-dialog {
