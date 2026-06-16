@@ -9,9 +9,14 @@ description = "Terminal log viewer for Microsoft 365"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "httpx==0.28.1",
   "pydantic==2.10.6",
   "PyYAML==6.0.2",
+<<<<<<< HEAD
   "tenacity==9.1.4",
+=======
+  "tenacity==9.0.0",
+>>>>>>> origin/main
   "textual==8.2.7",
 ]
 
