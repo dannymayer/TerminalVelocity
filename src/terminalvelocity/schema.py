@@ -1,4 +1,4 @@
-"""Schema stubs included so the Phase 1 search branch is reviewable on its own."""
+"""Shared schema models for TerminalVelocity providers."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ class NormalizedEvent(BaseModel):
 
 
 class ProviderCheckpoint(BaseModel):
-    """Minimal checkpoint schema kept for review branch compatibility."""
+    """Tracks polling state for a provider."""
 
     provider: str
     cursor: str | None = None
