@@ -1,5 +1,6 @@
 httpx==0.28.1
 pydantic==2.10.6
+PyYAML==6.0.2
 tenacity==9.0.0
 textual==8.2.7
 

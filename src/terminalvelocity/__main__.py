@@ -1,4 +1,4 @@
-"""CLI entrypoint for TerminalVelocity."""
+"""CLI entrypoint for launching the TerminalVelocity TUI."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from terminalvelocity.tui.app import TerminalVelocityApp, run_headless_smoke
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Launch the TerminalVelocity Phase 1 core TUI.")
-    parser.add_argument("--seed", type=int, default=365, help="Seed for deterministic mock events.")
-    parser.add_argument("--count", type=int, default=72, help="Number of mock events to generate.")
+    parser = argparse.ArgumentParser(description="Launch the TerminalVelocity Microsoft 365 log viewer.")
+    parser.add_argument("--seed", type=int, default=365, help="Seed for deterministic demo events.")
+    parser.add_argument("--count", type=int, default=72, help="Number of demo events to generate.")
     parser.add_argument(
         "--headless-smoke",
         action="store_true",

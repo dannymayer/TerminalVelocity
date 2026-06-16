@@ -10,6 +10,13 @@ src/terminalvelocity.egg-info/dependency_links.txt
 src/terminalvelocity.egg-info/entry_points.txt
 src/terminalvelocity.egg-info/requires.txt
 src/terminalvelocity.egg-info/top_level.txt
+src/terminalvelocity/investigation/__init__.py
+src/terminalvelocity/investigation/export.py
+src/terminalvelocity/investigation/highlight_rules.py
+src/terminalvelocity/investigation/performance.py
+src/terminalvelocity/investigation/pivot.py
+src/terminalvelocity/investigation/replay.py
+src/terminalvelocity/investigation/timeline.py
 src/terminalvelocity/providers/__init__.py
 src/terminalvelocity/providers/base.py
 src/terminalvelocity/providers/defender_xdr.py
