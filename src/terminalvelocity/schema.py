@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-"""Schema stubs included so the Phase 1 search branch is reviewable on its own."""
-=======
 """Shared schema models for TerminalVelocity providers."""
->>>>>>> origin/main
 
 from __future__ import annotations
 
@@ -46,11 +42,6 @@ class NormalizedEvent(BaseModel):
     def _normalize_result(cls, value: str | None) -> str | None:
         return value.lower() if isinstance(value, str) else value
 
-<<<<<<< HEAD
-    def raw_json(self) -> str:
-        return json.dumps(self.raw, sort_keys=True, default=str)
-
-=======
     @field_validator("severity", mode="before")
     @classmethod
     def _normalize_severity(cls, value: str | None) -> str | None:
@@ -84,7 +75,6 @@ class NormalizedEvent(BaseModel):
         ]
         return " ".join(fields).lower()
 
->>>>>>> origin/main
     def stable_id(self) -> str:
         payload = {
             "timestamp": self.timestamp.isoformat(),
@@ -106,10 +96,6 @@ class NormalizedEvent(BaseModel):
         return self.stable_id()
 
 
-<<<<<<< HEAD
-class ProviderCheckpoint(BaseModel):
-    """Minimal checkpoint schema kept for review branch compatibility."""
-=======
 class ProviderStatus(BaseModel):
     """Small provider status model for the Phase 1 TUI sidebar."""
 
@@ -124,7 +110,6 @@ class ProviderStatus(BaseModel):
 
 class ProviderCheckpoint(BaseModel):
     """Tracks polling state for a provider."""
->>>>>>> origin/main
 
     provider: str
     cursor: str | None = None

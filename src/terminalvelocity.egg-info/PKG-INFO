@@ -4,7 +4,10 @@ Version: 0.1.0
 Summary: Terminal log viewer for Microsoft 365
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
+Requires-Dist: httpx==0.28.1
 Requires-Dist: pydantic==2.10.6
+Requires-Dist: tenacity==9.0.0
+Requires-Dist: textual==8.2.7
 Provides-Extra: dev
 Requires-Dist: pytest==8.3.4; extra == "dev"
 
