@@ -1,41 +1,54 @@
-"""Minimal schema stubs for the self-contained Phase 1 TUI review branch."""
+"""Shared schema models for TerminalVelocity providers."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
-from typing import Any
+import hashlib
 import json
+from datetime import UTC, datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-@dataclass(slots=True, frozen=True)
-class NormalizedEvent:
-    """Common event shape used by the Phase 1 TUI mock workflow."""
+class NormalizedEvent(BaseModel):
+    """Cross-provider event structure used by search and correlation features."""
+
+    model_config = ConfigDict(extra="allow")
 
     timestamp: datetime
     provider: str
     service: str
-    actor: str
+    tenant_id: str | None = None
+    actor: str | None = None
     action: str
-    target: str
-    result: str
-    severity: str
-    correlation_id: str
-    request_id: str
-    raw: dict[str, Any]
+    target: str | None = None
+    result: Literal["success", "failure"] | str | None = None
+    severity: str | None = None
+    correlation_id: str | None = None
+    request_id: str | None = None
+    raw: dict[str, Any] = Field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        timestamp = self.timestamp
-        if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=UTC)
-        else:
-            timestamp = timestamp.astimezone(UTC)
-        object.__setattr__(self, "timestamp", timestamp)
-        object.__setattr__(self, "result", self.result.lower())
-        object.__setattr__(self, "severity", self.severity.lower())
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def _normalize_timestamp(cls, value: datetime | str) -> datetime:
+        if isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+    @field_validator("result", mode="before")
+    @classmethod
+    def _normalize_result(cls, value: str | None) -> str | None:
+        return value.lower() if isinstance(value, str) else value
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, value: str | None) -> str | None:
+        return value.lower() if isinstance(value, str) else value
 
     def to_record(self) -> dict[str, Any]:
-        record = asdict(self)
+        record = self.model_dump(mode="json")
         record["timestamp"] = self.timestamp.isoformat()
         return record
 
@@ -43,7 +56,7 @@ class NormalizedEvent:
         return json.dumps(self.to_record(), indent=2, sort_keys=True)
 
     def raw_json(self) -> str:
-        return json.dumps(self.raw, indent=2, sort_keys=True, default=str)
+        return json.dumps(self.raw, sort_keys=True, default=str)
 
     def searchable_text(self) -> str:
         raw_blob = json.dumps(self.raw, sort_keys=True, default=str)
@@ -51,20 +64,39 @@ class NormalizedEvent:
             self.timestamp.isoformat(),
             self.provider,
             self.service,
-            self.actor,
+            self.actor or "",
             self.action,
-            self.target,
-            self.result,
-            self.severity,
-            self.correlation_id,
-            self.request_id,
+            self.target or "",
+            self.result or "",
+            self.severity or "",
+            self.correlation_id or "",
+            self.request_id or "",
             raw_blob,
         ]
         return " ".join(fields).lower()
 
+    def stable_id(self) -> str:
+        payload = {
+            "timestamp": self.timestamp.isoformat(),
+            "provider": self.provider,
+            "service": self.service,
+            "tenant_id": self.tenant_id,
+            "actor": self.actor,
+            "action": self.action,
+            "target": self.target,
+            "result": self.result,
+            "severity": self.severity,
+            "correlation_id": self.correlation_id,
+            "request_id": self.request_id,
+            "raw": self.raw,
+        }
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
-@dataclass(slots=True, frozen=True)
-class ProviderStatus:
+    def cache_key(self) -> str:
+        return self.stable_id()
+
+
+class ProviderStatus(BaseModel):
     """Small provider status model for the Phase 1 TUI sidebar."""
 
     provider: str
@@ -74,3 +106,12 @@ class ProviderStatus:
     error_count: int
     enabled: bool
     total_events: int
+
+
+class ProviderCheckpoint(BaseModel):
+    """Tracks polling state for a provider."""
+
+    provider: str
+    cursor: str | None = None
+    last_event_time: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)

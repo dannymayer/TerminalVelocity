@@ -1,5 +1,5 @@
-"""Compatibility aliases for the self-contained Phase 1 TUI branch."""
+"""Compatibility imports for modules expecting terminalvelocity.models."""
 
-from terminalvelocity.schema import NormalizedEvent, ProviderStatus
+from terminalvelocity.schema import NormalizedEvent, ProviderCheckpoint, ProviderStatus
 
-__all__ = ["NormalizedEvent", "ProviderStatus"]
+__all__ = ["NormalizedEvent", "ProviderCheckpoint", "ProviderStatus"]

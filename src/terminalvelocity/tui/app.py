@@ -229,6 +229,7 @@ class TerminalVelocityApp(App[None]):
                         "request_id",
                         "raw",
                     ],
+                    extrasaction="ignore",
                 )
                 writer.writeheader()
                 for row in rows:
