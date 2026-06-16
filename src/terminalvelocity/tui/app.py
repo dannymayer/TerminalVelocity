@@ -15,7 +15,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Footer, Header, Markdown, Static
+from textual.widgets import Footer, Header, Static
 
 from terminalvelocity.schema import NormalizedEvent, ProviderStatus
 from terminalvelocity.tui.keybindings import HELP_TEXT, KEY_BINDINGS
@@ -71,7 +71,7 @@ class HelpScreen(ModalScreen[None]):
     BINDINGS = [("escape", "close", "Close"), ("enter", "close", "Close"), ("question_mark", "close", "Close")]
 
     def compose(self) -> ComposeResult:
-        yield Markdown(HELP_TEXT, id="help-dialog")
+        yield Static(HELP_TEXT, id="help-dialog")
 
     def action_close(self) -> None:
         self.dismiss()
