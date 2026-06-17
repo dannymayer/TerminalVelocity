@@ -1,0 +1,60 @@
+# TerminalVelocity application configuration
+# Copy this file to config/terminalvelocity.yaml and customise.
+
+# Path to highlight/alert rules (default: config/highlight_rules.yaml)
+# highlight_rules_path: config/highlight_rules.yaml
+
+# How many hours of events to keep in the "hot" (searchable) window.
+# Events older than this are archived and excluded from default searches.
+# Use show:archived in the query bar to include them.
+retention_hours: 168  # 7 days
+
+# Default polling interval for live providers (seconds)
+poll_interval_seconds: 60
+
+# --- Tenant credentials -------------------------------------------------------
+# Define one or more Entra tenants.  The tenant_id, client_id, and
+# client_secret can be overridden by environment variables:
+#   TERMINALVELOCITY_TENANT_ID / TERMINALVELOCITY_CLIENT_ID / TERMINALVELOCITY_CLIENT_SECRET
+#
+# tenants:
+#   - tenant_id: "your-tenant-id"
+#     client_id: "your-app-client-id"
+#     client_secret: "your-app-client-secret"
+#     display_name: "Contoso Production"
+
+# --- Provider enablement -------------------------------------------------------
+# List which providers to enable and their individual poll intervals.
+# Omitting this section enables all registered providers with the default interval.
+#
+# providers:
+#   - name: entra
+#     enabled: true
+#     poll_interval_seconds: 60
+#   - name: defender
+#     enabled: true
+#     poll_interval_seconds: 120
+#   - name: intune
+#     enabled: true
+#   - name: exchange
+#     enabled: false
+#   - name: sharepoint
+#     enabled: false
+#   - name: teams
+#     enabled: false
+#   - name: defender_cloud_apps
+#     enabled: false
+
+# --- Custom field mappings for --input file ingestion -------------------------
+# Teach TerminalVelocity how to map arbitrary JSON keys to the normalized schema.
+# This allows ingesting logs from non-M365 sources (Azure Activity Log, custom apps).
+#
+# field_mappings:
+#   - provider: azure
+#     service: activity
+#     timestamp: eventTimestamp
+#     actor: caller
+#     action: operationName
+#     target: resourceId
+#     result: status
+#     severity: level

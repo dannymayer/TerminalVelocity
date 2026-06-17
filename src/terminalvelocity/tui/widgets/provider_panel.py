@@ -14,13 +14,20 @@ from terminalvelocity.tui.themes import provider_badge, state_badge
 
 
 class ProviderPanel(Widget):
-    """Displays provider availability, lag, and filtered counts."""
+    """Displays provider availability, lag, filtered counts, and anomaly badge."""
 
     def compose(self) -> ComposeResult:
         yield Static("Providers", classes="panel-title")
         yield Static(id="provider-body")
 
-    def update_statuses(self, statuses: list[ProviderStatus], filtered_counts: dict[str, int]) -> None:
+    def update_statuses(
+        self,
+        statuses: list[ProviderStatus],
+        filtered_counts: dict[str, int],
+        *,
+        anomaly_count: int = 0,
+        alert_count: int = 0,
+    ) -> None:
         table = Table.grid(expand=True)
         table.add_column("Provider", ratio=2)
         table.add_column("State", ratio=1)
@@ -38,5 +45,16 @@ class ProviderPanel(Widget):
                 Text(f"{status.lag_seconds}s", style="#94a3b8"),
                 errors,
             )
-        footer = Text("Keyboard-first triage with live mock provider health.", style="#94a3b8")
-        self.query_one("#provider-body", Static).update(Group(table, Text(""), footer))
+        rows: list = [table, Text("")]
+        if alert_count:
+            alert_line = Text()
+            alert_line.append(f" ⚑ {alert_count} alert rule match{'es' if alert_count != 1 else ''} ", style="white on #dc2626")
+            rows.append(alert_line)
+            rows.append(Text(""))
+        if anomaly_count:
+            anomaly_line = Text()
+            anomaly_line.append(f" ⚠ {anomaly_count} anomaly marker{'s' if anomaly_count != 1 else ''} ", style="black on #f97316")
+            rows.append(anomaly_line)
+            rows.append(Text(""))
+        rows.append(Text("p pivot  t timeline  a anomalies", style="#94a3b8"))
+        self.query_one("#provider-body", Static).update(Group(*rows))
