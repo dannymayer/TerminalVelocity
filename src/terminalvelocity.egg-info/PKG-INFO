@@ -5,7 +5,7 @@ Summary: Terminal log viewer for Microsoft 365
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 Requires-Dist: httpx==0.28.1
-Requires-Dist: pydantic==2.10.6
+Requires-Dist: pydantic>=2.11.0
 Requires-Dist: PyYAML==6.0.2
 Requires-Dist: tenacity==9.1.4
 Requires-Dist: textual==8.2.7
@@ -13,139 +13,68 @@ Provides-Extra: dev
 Requires-Dist: pytest==8.3.4; extra == "dev"
 
 # TerminalVelocity
-A Terminal Log Viewer for M365
 
-## Development Plan: M365 Log Aggregation TUI
+A terminal UI for aggregating, searching, and investigating Microsoft 365 security and operations logs.
 
-### Goal
-Build a terminal UI that aggregates and normalizes high-value Microsoft 365 security and operations logs, then makes them easy to search, correlate, and review in one workflow.
+TerminalVelocity pulls events from M365 providers (Entra ID, Defender XDR, Intune, Purview, and more), normalizes them into a shared schema, indexes them locally, and presents them in a keyboard-driven TUI built with [Textual](https://textual.textualize.io/).
 
-### 1) Breadth of Logging Captured and Displayed
+For full application documentation see [DOCS.md](DOCS.md).
 
-#### Priority 1 providers (MVP)
-- Unified Audit Log (Microsoft Purview)
-- Microsoft Intune audit and operational logs
-- Microsoft Defender XDR incidents, alerts, and device timeline events
-- Microsoft Entra ID sign-in and audit logs
+## Requirements
 
-#### Priority 2 providers (post-MVP)
-- Exchange Online message trace and admin logs
-- SharePoint / OneDrive audit events
-- Microsoft Teams audit and compliance events
-- Microsoft Cloud App Security / Defender for Cloud Apps
+- Python 3.12+
+- A Microsoft Entra app registration with the appropriate Graph / M365 API permissions
 
-#### Ingestion model
-- Provider adapters with a shared interface (`connect`, `fetch`, `normalize`, `checkpoint`)
-- Time-window polling with cursor/checkpoint persistence per provider
-- Retry and backoff for throttling and transient Graph/API failures
-- Optional local raw log cache for replay and troubleshooting
+## Install
 
-#### Normalized event schema
-Each provider event maps into a common structure:
-- `timestamp`
-- `provider`
-- `service`
-- `tenant_id`
-- `actor` (user/app/service principal)
-- `action`
-- `target`
-- `result` (success/failure)
-- `severity` (if available)
-- `correlation_id` / `request_id`
-- `raw` (original event payload)
-
-### 2) Searchability of Log Files
-
-#### Query capabilities
-- Free-text search across normalized and raw fields
-- Field filters (`provider:defender`, `actor:user@contoso.com`, `result:failure`)
-- Time-range filtering (last 15m/1h/24h/custom)
-- Saved searches for common investigations
-- Sort by time, severity, or provider
-
-#### Correlation and triage
-- Group similar events by correlation/request ID
-- Pivot from one event to related actor, target, or session activity
-- Highlight anomaly markers (burst failures, rare actions, privileged operations)
-
-#### Indexing strategy
-- Local lightweight index for recent events (hot window)
-- Archive older events to compressed storage while keeping searchable metadata
-- Incremental index updates during ingestion
-
-### 3) Presentation of Log Information
-
-#### TUI layout
-- Top: global filters/query bar and time scope
-- Left: provider/status panel (enabled sources, lag, errors)
-- Center: event table (timestamp, provider, actor, action, result)
-- Right/bottom: expandable detail panel showing normalized + raw JSON
-
-#### UX behaviors
-- Keyboard-first navigation (vim + arrow-key friendly)
-- Color cues for severity and failures
-- Inline badges for provider, service, and risk hints
-- Fast toggles between “overview” and “deep detail” modes
-- Export selected results to JSON/CSV
-
-### 4) Delivery Phases
-
-#### Phase 0: Foundations
-- Project structure, config loading, secret handling, auth scaffolding
-- Provider interface and normalized event schema
-- Basic persistence for checkpoints and cache
-
-#### Phase 1: MVP
-- Implement adapters for Unified Audit Log, Intune, Defender XDR, Entra ID
-- Build core TUI (provider panel, event list, detail view)
-- Implement baseline search/filter/query syntax
-
-#### Phase 2: Investigation Workflow
-- Saved queries, event correlation, alerting/highlight rules
-- Export and session replay support
-- Performance tuning for large event volumes
-
-#### Phase 3: Extended Coverage
-- Add additional M365 providers
-- Improve schema mapping quality and cross-provider enrichment
-- Harden reliability and observability
-
-### 5) Validation Criteria
-- Ingestion coverage: MVP providers produce normalized events continuously
-- Search performance: interactive filtering remains responsive on large local datasets
-- Presentation quality: analysts can move from summary to raw evidence in <5 key actions
-- Reliability: checkpoints prevent duplicate floods and support restart recovery
-
-## Phase 0 Foundation Setup
-
-### Requirements
-- Python 3.11+
-- A Microsoft Entra app registration for delegated and/or app-only access
-- Optional local keyring backend if you want secrets stored outside environment variables
-
-### Install
 ```bash
 python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e .
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install --upgrade pip
+pip install -e .
 ```
 
-### Configure
-1. Copy `config.example.toml` to `config.toml`.
-2. Fill in your tenant ID, client IDs, scopes, and provider settings.
-3. Store secrets with either:
-   - environment variables such as `TERMINALVELOCITY_CLIENT_SECRET`, or
-   - keyring entries referenced from the TOML config.
+## Quick start
 
-### Phase 0 package layout
-- `src/terminalvelocity/config.py` – TOML loading, validation, and secret resolution
-- `src/terminalvelocity/auth.py` – MSAL device code and client credentials scaffolding
-- `src/terminalvelocity/schema.py` – normalized event schema shared by all providers
-- `src/terminalvelocity/providers/base.py` – provider adapter contract
-- `src/terminalvelocity/persistence.py` – SQLite checkpoints and raw-event cache
+Launch the TUI with demo events (no credentials required):
 
-### Notes
-- This phase provides the shared foundation for later providers and the Textual TUI.
-- Runtime secrets should not be committed; `config.toml` is gitignored by default.
-- SQLite persistence is local-first and designed for provider checkpoint recovery and raw-event replay.
+```bash
+terminalvelocity
+```
+
+Run a non-interactive smoke test and exit:
+
+```bash
+terminalvelocity --headless-smoke
+```
+
+Control the number and seed of generated demo events:
+
+```bash
+terminalvelocity --count 200 --seed 42
+```
+
+## Configuration
+
+Copy the example highlight rules and edit to suit your environment:
+
+```bash
+cp config/highlight_rules.example.yaml config/highlight_rules.yaml
+```
+
+Store credentials in environment variables (never commit secrets):
+
+| Variable | Purpose |
+|---|---|
+| `TERMINALVELOCITY_TENANT_ID` | Entra tenant ID |
+| `TERMINALVELOCITY_CLIENT_ID` | App registration client ID |
+| `TERMINALVELOCITY_CLIENT_SECRET` | App registration client secret |
+
+See [DOCS.md – Configuration](DOCS.md#configuration) for the full reference.
+
+## Contributing
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
