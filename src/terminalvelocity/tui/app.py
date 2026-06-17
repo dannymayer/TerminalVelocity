@@ -107,6 +107,7 @@ class TerminalVelocityApp(App[None]):
         live: bool = False,
         input_events: list[NormalizedEvent] | None = None,
         compare_hours: int | None = None,
+        database_path: str | Path | None = None,
     ) -> None:
         super().__init__()
         self.seed = seed
@@ -126,8 +127,9 @@ class TerminalVelocityApp(App[None]):
         # Storage directory for persistence
         _STORAGE_DIR.mkdir(exist_ok=True)
 
-        # Core services
-        self.engine = SearchEngine(_STORAGE_DIR / "index.db")
+        # Core services — use caller-supplied path or default persistent store
+        db_path = database_path if database_path is not None else _STORAGE_DIR / "index.db"
+        self.engine = SearchEngine(db_path)
         self.saved_queries = SavedQueryStore(_STORAGE_DIR / "saved_queries.db")
         self.query_history = QueryHistoryStore(_STORAGE_DIR / "history.db")
         self._exporter = EventExporter()
@@ -489,7 +491,7 @@ def generate_mock_dataset(*, seed: int, count: int) -> tuple[list[NormalizedEven
         severity = "critical" if result == "failure" and rng.random() > 0.55 else rng.choice(SEVERITIES)
         actor = rng.choice(ACTORS)
         target = rng.choice(TARGETS[provider])
-        timestamp = now - timedelta(minutes=rng.randint(0, 24 * 60), seconds=rng.randint(0, 59))
+        timestamp = now - timedelta(minutes=rng.randint(0, 23 * 60), seconds=rng.randint(0, 59))
         correlation_id = f"corr-{seed}-{index:03d}"
         request_id = f"req-{seed}-{index:03d}"
         raw = {
@@ -549,7 +551,7 @@ async def run_headless_smoke(*, seed: int = 365, count: int = 24) -> None:
     json_path = Path.cwd() / "smoke-export.json"
     csv_path = Path.cwd() / "smoke-export.csv"
     md_path = Path.cwd() / "smoke-export.md"
-    app = TerminalVelocityApp(seed=seed, count=count)
+    app = TerminalVelocityApp(seed=seed, count=count, database_path=":memory:")
     try:
         async with app.run_test(headless=True, size=(160, 48)) as pilot:
             await pilot.pause()

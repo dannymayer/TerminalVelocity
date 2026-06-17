@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -65,7 +66,14 @@ class AppConfig(BaseModel):
 
     @classmethod
     def load_or_default(cls, path: str | Path | None = None) -> "AppConfig":
-        """Load from *path*, then search default locations, or return defaults."""
+        """Load from *path*, then search default locations, or return defaults.
+
+        Tenant credentials can be provided via environment variables:
+        ``TERMINALVELOCITY_TENANT_ID``, ``TERMINALVELOCITY_CLIENT_ID``, and
+        ``TERMINALVELOCITY_CLIENT_SECRET``.  When all three are set, a
+        :class:`TenantConfig` is added automatically unless a tenant with that
+        ID already exists in the YAML configuration.
+        """
         candidates: list[Path] = []
         if path:
             candidates.append(Path(path))
@@ -74,7 +82,26 @@ class AppConfig(BaseModel):
             Path("terminalvelocity.yaml"),
             Path.home() / ".terminalvelocity" / "config.yaml",
         ])
+        cfg: AppConfig | None = None
         for candidate in candidates:
             if candidate.exists():
-                return cls.from_yaml(candidate)
-        return cls()
+                cfg = cls.from_yaml(candidate)
+                break
+        if cfg is None:
+            cfg = cls()
+
+        # Overlay tenant credentials from environment variables when not already configured.
+        env_tenant_id = os.environ.get("TERMINALVELOCITY_TENANT_ID")
+        env_client_id = os.environ.get("TERMINALVELOCITY_CLIENT_ID")
+        env_client_secret = os.environ.get("TERMINALVELOCITY_CLIENT_SECRET")
+        if env_tenant_id and env_client_id and env_client_secret:
+            existing_ids = {t.tenant_id for t in cfg.tenants}
+            if env_tenant_id not in existing_ids:
+                env_tenant = TenantConfig(
+                    tenant_id=env_tenant_id,
+                    client_id=env_client_id,
+                    client_secret=env_client_secret,
+                )
+                cfg = cfg.model_copy(update={"tenants": [*cfg.tenants, env_tenant]})
+
+        return cfg
