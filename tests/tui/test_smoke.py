@@ -55,48 +55,34 @@ def test_demo_mode_used_when_credentials_absent() -> None:
 
 
 def test_live_mode_used_when_credentials_present() -> None:
-    """App calls _load_live_events when all three credentials are supplied."""
+    """App calls _poll_providers when live=True and credentials are set."""
+    import os
+    from unittest.mock import AsyncMock, patch
+
     async def run() -> None:
         live_events = generate_mock_events(count=5, seed=99)
         from terminalvelocity.schema import ProviderStatus
-        live_statuses = [
-            ProviderStatus(
-                provider="entra_id",
-                service="Microsoft Entra ID",
-                state="ok",
-                lag_seconds=0,
-                error_count=0,
-                enabled=True,
-                total_events=5,
-            )
-        ]
-        app = TerminalVelocityApp(
-            seed=1,
-            count=10,
-            tenant_id="test-tenant",
-            client_id="test-client",
-            client_secret="test-secret",
-        )
-        with patch.object(app, "_load_live_events", new=AsyncMock(return_value=(live_events, live_statuses))):
+        app = TerminalVelocityApp(seed=1, count=10, live=True)
+        env_vars = {
+            "TERMINALVELOCITY_TENANT_ID": "test-tenant",
+            "TERMINALVELOCITY_CLIENT_ID": "test-client",
+            "TERMINALVELOCITY_CLIENT_SECRET": "test-secret",
+        }
+        with patch.dict(os.environ, env_vars), patch.object(
+            app, "_poll_providers", new=AsyncMock()
+        ) as mock_poll:
             async with app.run_test(size=(150, 45)) as pilot:
                 await pilot.pause()
-                assert app.events is live_events
-                assert app.provider_statuses is live_statuses
-                app._load_live_events.assert_awaited_once()
+                assert "Live" in app.sub_title
+                mock_poll.assert_awaited()
 
     asyncio.run(run())
 
 
 def test_partial_credentials_fall_back_to_demo() -> None:
-    """App uses mock data when only some credentials are provided."""
+    """App uses mock data when live flag is not set."""
     async def run() -> None:
-        app = TerminalVelocityApp(
-            seed=1,
-            count=10,
-            tenant_id="test-tenant",
-            client_id=None,
-            client_secret="test-secret",
-        )
+        app = TerminalVelocityApp(seed=1, count=10)
         async with app.run_test(size=(150, 45)) as pilot:
             await pilot.pause()
             assert len(app.events) == 10

@@ -165,7 +165,6 @@ class TerminalVelocityApp(App[None]):
 
     async def on_mount(self) -> None:
         self.title = "TerminalVelocity"
-        self.sub_title = "M365 log viewer"
 
         # Configure event table
         table = self.query_one(EventTable)
@@ -174,12 +173,15 @@ class TerminalVelocityApp(App[None]):
         table.set_show_correlation(True)
 
         if self._input_events:
+            self.sub_title = "File ingestion mode"
             self.events = self._input_events
         elif self.live:
+            self.sub_title = "Live – connecting to M365 providers…"
             self.events = []
             self.set_interval(self.config.poll_interval_seconds, self._poll_providers)
             asyncio.ensure_future(self._poll_providers())
         else:
+            self.sub_title = "Demo mode"
             self.events, self.provider_statuses = generate_mock_dataset(seed=self.seed, count=self.count)
 
         if self.events:
