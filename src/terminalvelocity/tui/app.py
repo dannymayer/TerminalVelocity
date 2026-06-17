@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import json
+import logging
 import random
 from collections import Counter
 from datetime import UTC, datetime, timedelta
@@ -24,6 +25,8 @@ from terminalvelocity.tui.widgets.detail_panel import DetailPanel
 from terminalvelocity.tui.widgets.event_table import EventTable
 from terminalvelocity.tui.widgets.provider_panel import ProviderPanel
 from terminalvelocity.tui.widgets.query_bar import QueryBar
+
+LOGGER = logging.getLogger(__name__)
 
 PROVIDER_CATALOG = [
     ("entra", "signin"),
@@ -78,15 +81,26 @@ class HelpScreen(ModalScreen[None]):
 
 
 class TerminalVelocityApp(App[None]):
-    """Keyboard-first Textual log triage UI backed by mock data."""
+    """Keyboard-first Textual log triage UI."""
 
     CSS = APP_CSS
     BINDINGS = KEY_BINDINGS
 
-    def __init__(self, *, seed: int = 365, count: int = 72) -> None:
+    def __init__(
+        self,
+        *,
+        seed: int = 365,
+        count: int = 72,
+        tenant_id: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+    ) -> None:
         super().__init__()
         self.seed = seed
         self.count = count
+        self.tenant_id = tenant_id
+        self.client_id = client_id
+        self.client_secret = client_secret
         self.deep_detail = False
         self.detail_visible = True
         self.last_export: str | None = None
@@ -111,12 +125,69 @@ class TerminalVelocityApp(App[None]):
                 yield DetailPanel(id="detail-bottom")
         yield Footer()
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.title = "TerminalVelocity"
-        self.sub_title = "Phase 1 core TUI"
-        self.events, self.provider_statuses = generate_mock_dataset(seed=self.seed, count=self.count)
+        if self.tenant_id and self.client_id and self.client_secret:
+            self.sub_title = "Live – connecting to M365 providers…"
+            self.events, self.provider_statuses = await self._load_live_events()
+        else:
+            self.sub_title = "Demo mode"
+            self.events, self.provider_statuses = generate_mock_dataset(seed=self.seed, count=self.count)
         self.refresh_view()
         self.query_one(EventTable).focus_table()
+
+    async def _load_live_events(self) -> tuple[list[NormalizedEvent], list[ProviderStatus]]:
+        """Connect to configured M365 providers and return live events."""
+        from terminalvelocity.providers.defender_xdr import DefenderXdrProvider
+        from terminalvelocity.providers.entra_id import EntraIdProvider
+        from terminalvelocity.providers.intune import IntuneProvider
+        from terminalvelocity.providers.unified_audit_log import UnifiedAuditLogProvider
+
+        credentials = {
+            "tenant_id": self.tenant_id,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+        }
+        provider_catalog = [
+            ("entra_id", "Microsoft Entra ID", EntraIdProvider),
+            ("defender_xdr", "Defender XDR", DefenderXdrProvider),
+            ("intune", "Intune", IntuneProvider),
+            ("ual", "Unified Audit Log", UnifiedAuditLogProvider),
+        ]
+
+        all_events: list[NormalizedEvent] = []
+        statuses: list[ProviderStatus] = []
+
+        for provider_name, service_name, ProviderClass in provider_catalog:
+            provider = ProviderClass(**credentials)
+            state = "ok"
+            error_count = 0
+            provider_events: list[NormalizedEvent] = []
+            try:
+                await provider.connect()
+                provider_events = await provider.fetch()
+                all_events.extend(provider_events)
+            except Exception:
+                LOGGER.exception("Provider %s failed to load events", provider_name)
+                state = "error"
+                error_count = 1
+            finally:
+                await provider.close()
+            statuses.append(
+                ProviderStatus(
+                    provider=provider_name,
+                    service=service_name,
+                    state=state,
+                    lag_seconds=0,
+                    error_count=error_count,
+                    enabled=True,
+                    total_events=len(provider_events),
+                )
+            )
+
+        all_events.sort(key=lambda e: e.timestamp, reverse=True)
+        self.sub_title = f"Live – {len(all_events)} events loaded"
+        return all_events, statuses
 
     def action_focus_query(self) -> None:
         self.query_one(QueryBar).focus_query()
