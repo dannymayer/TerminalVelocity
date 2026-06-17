@@ -52,6 +52,7 @@ src/terminalvelocity/tui/themes.py
 src/terminalvelocity/tui/screens/__init__.py
 src/terminalvelocity/tui/screens/anomaly.py
 src/terminalvelocity/tui/screens/history.py
+src/terminalvelocity/tui/screens/log_viewer.py
 src/terminalvelocity/tui/screens/pivot.py
 src/terminalvelocity/tui/screens/saved_queries.py
 src/terminalvelocity/tui/screens/tag.py

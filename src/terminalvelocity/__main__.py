@@ -4,12 +4,42 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import os
 from collections.abc import Sequence
 from pathlib import Path
 
 from terminalvelocity.config import AppConfig
 from terminalvelocity.tui.app import TerminalVelocityApp, run_headless_smoke
+
+_DEFAULT_LOG_FILE = Path(".terminalvelocity") / "app.log"
+
+
+def _configure_logging(log_file: str | Path, log_level: str) -> None:
+    """Set up a rotating file handler that captures all application logs."""
+    from logging.handlers import RotatingFileHandler
+
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    level = getattr(logging, log_level.upper(), logging.WARNING)
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+
+    handler = RotatingFileHandler(
+        log_path,
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=3,
+        encoding="utf-8",
+    )
+    handler.setFormatter(fmt)
+    handler.setLevel(level)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    root_logger.addHandler(handler)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -74,6 +104,20 @@ Examples:
         help="Path to terminalvelocity.yaml configuration file.",
     )
 
+    # Logging
+    parser.add_argument(
+        "--log-file",
+        metavar="FILE",
+        default=None,
+        help=f"Path to the application log file (default: {_DEFAULT_LOG_FILE}).",
+    )
+    parser.add_argument(
+        "--log-level",
+        metavar="LEVEL",
+        default=None,
+        help="Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: WARNING).",
+    )
+
     # Test / CI
     parser.add_argument(
         "--headless-smoke",
@@ -91,6 +135,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # Load application configuration
     config = AppConfig.load_or_default(args.config)
+
+    # Configure file-based logging (CLI args take precedence over config)
+    log_file = args.log_file or config.log_file or _DEFAULT_LOG_FILE
+    log_level = args.log_level or config.log_level
+    _configure_logging(log_file, log_level)
 
     # Auto-enable live mode when credentials are available in the environment
     if not args.live and not args.input:
@@ -134,6 +183,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         live=args.live,
         input_events=input_events,
         compare_hours=args.compare,
+        log_file=Path(log_file),
     ).run()
     return 0
 
