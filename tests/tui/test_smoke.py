@@ -89,3 +89,28 @@ def test_partial_credentials_fall_back_to_demo() -> None:
             assert "Demo mode" in app.sub_title
 
     asyncio.run(run())
+
+
+def test_main_auto_enables_live_when_env_creds_present() -> None:
+    """main() auto-enables live mode when all three env credentials are set."""
+    import os
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    env_vars = {
+        "TERMINALVELOCITY_TENANT_ID": "test-tenant",
+        "TERMINALVELOCITY_CLIENT_ID": "test-client",
+        "TERMINALVELOCITY_CLIENT_SECRET": "test-secret",
+    }
+
+    mock_app = MagicMock()
+    mock_app.run = MagicMock()
+
+    def capture_app(**kwargs: object) -> MagicMock:
+        assert kwargs.get("live") is True, "live should be True when env creds are present"
+        return mock_app
+
+    with patch.dict(os.environ, env_vars, clear=False), patch(
+        "terminalvelocity.__main__.TerminalVelocityApp", side_effect=capture_app
+    ):
+        from terminalvelocity.__main__ import main
+        main([])
