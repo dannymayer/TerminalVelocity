@@ -2,6 +2,8 @@ README.md
 pyproject.toml
 src/terminalvelocity/__init__.py
 src/terminalvelocity/__main__.py
+src/terminalvelocity/config.py
+src/terminalvelocity/ingestion.py
 src/terminalvelocity/models.py
 src/terminalvelocity/schema.py
 src/terminalvelocity.egg-info/PKG-INFO
@@ -39,6 +41,7 @@ src/terminalvelocity/search/anomaly.py
 src/terminalvelocity/search/correlator.py
 src/terminalvelocity/search/engine.py
 src/terminalvelocity/search/filters.py
+src/terminalvelocity/search/history.py
 src/terminalvelocity/search/index.py
 src/terminalvelocity/search/parser.py
 src/terminalvelocity/search/saved_queries.py
@@ -46,8 +49,17 @@ src/terminalvelocity/tui/__init__.py
 src/terminalvelocity/tui/app.py
 src/terminalvelocity/tui/keybindings.py
 src/terminalvelocity/tui/themes.py
+src/terminalvelocity/tui/screens/__init__.py
+src/terminalvelocity/tui/screens/anomaly.py
+src/terminalvelocity/tui/screens/history.py
+src/terminalvelocity/tui/screens/pivot.py
+src/terminalvelocity/tui/screens/saved_queries.py
+src/terminalvelocity/tui/screens/tag.py
+src/terminalvelocity/tui/screens/timeline.py
 src/terminalvelocity/tui/widgets/__init__.py
 src/terminalvelocity/tui/widgets/detail_panel.py
 src/terminalvelocity/tui/widgets/event_table.py
 src/terminalvelocity/tui/widgets/provider_panel.py
 src/terminalvelocity/tui/widgets/query_bar.py
+tests/test_config.py
+tests/test_ingestion.py
