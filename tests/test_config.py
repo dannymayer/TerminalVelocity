@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import textwrap
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import pytest
@@ -67,3 +68,55 @@ class AppConfigYAMLTests(unittest.TestCase):
         # as_dict returns {dst_field: source_key} for non-None mappings
         self.assertEqual(d.get("actor"), "UserId")
         self.assertEqual(d.get("action"), "Operation")
+
+
+class AppConfigEnvVarTests(unittest.TestCase):
+    def test_env_vars_add_tenant_when_none_configured(self) -> None:
+        import os
+        env = {
+            "TERMINALVELOCITY_TENANT_ID": "env-tenant",
+            "TERMINALVELOCITY_CLIENT_ID": "env-client",
+            "TERMINALVELOCITY_CLIENT_SECRET": "env-secret",
+        }
+        with unittest.mock.patch.dict(os.environ, env, clear=False):
+            cfg = AppConfig.load_or_default(None)
+        self.assertEqual(len(cfg.tenants), 1)
+        self.assertEqual(cfg.tenants[0].tenant_id, "env-tenant")
+        self.assertEqual(cfg.tenants[0].client_id, "env-client")
+        self.assertEqual(cfg.tenants[0].client_secret, "env-secret")
+
+    def test_env_vars_do_not_duplicate_existing_tenant(self) -> None:
+        import os, tempfile, textwrap
+        yaml_content = textwrap.dedent("""\
+            tenants:
+              - tenant_id: "env-tenant"
+                client_id: "yaml-client"
+                client_secret: "yaml-secret"
+        """)
+        env = {
+            "TERMINALVELOCITY_TENANT_ID": "env-tenant",
+            "TERMINALVELOCITY_CLIENT_ID": "env-client",
+            "TERMINALVELOCITY_CLIENT_SECRET": "env-secret",
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            name = f.name
+        try:
+            with unittest.mock.patch.dict(os.environ, env, clear=False):
+                cfg = AppConfig.load_or_default(name)
+            # Existing YAML tenant should not be duplicated
+            self.assertEqual(len(cfg.tenants), 1)
+            self.assertEqual(cfg.tenants[0].client_id, "yaml-client")
+        finally:
+            os.unlink(name)
+
+    def test_partial_env_vars_do_not_add_tenant(self) -> None:
+        import os
+        # Only two of three vars set — no tenant should be added
+        env = {
+            "TERMINALVELOCITY_TENANT_ID": "env-tenant",
+            "TERMINALVELOCITY_CLIENT_ID": "env-client",
+        }
+        with unittest.mock.patch.dict(os.environ, env, clear=False):
+            cfg = AppConfig.load_or_default(None)
+        self.assertEqual(len(cfg.tenants), 0)
