@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import json
+import logging
 import os
 import random
 from collections import Counter
@@ -33,6 +34,8 @@ from terminalvelocity.tui.widgets.detail_panel import DetailPanel
 from terminalvelocity.tui.widgets.event_table import EventTable
 from terminalvelocity.tui.widgets.provider_panel import ProviderPanel
 from terminalvelocity.tui.widgets.query_bar import QueryBar
+
+LOGGER = logging.getLogger(__name__)
 
 PROVIDER_CATALOG = [
     ("entra", "signin"),
@@ -160,7 +163,7 @@ class TerminalVelocityApp(App[None]):
                 yield DetailPanel(id="detail-bottom")
         yield Footer()
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.title = "TerminalVelocity"
         self.sub_title = "M365 log viewer"
 

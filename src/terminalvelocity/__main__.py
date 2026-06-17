@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -84,7 +85,6 @@ Examples:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-
     if args.headless_smoke:
         asyncio.run(run_headless_smoke(seed=args.seed, count=args.count))
         return 0
