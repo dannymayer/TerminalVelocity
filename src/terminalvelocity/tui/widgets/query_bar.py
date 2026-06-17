@@ -29,7 +29,7 @@ class QueryBar(Widget):
     def compose(self) -> ComposeResult:
         yield Static("Query + scope", id="query-title")
         with Horizontal(id="query-controls"):
-            yield Input(placeholder="Search events or field:value (provider:defender result:failure)", id="query-input")
+            yield Input(placeholder="Search events or field:value  tag:label  show:archived  sort:severity", id="query-input")
             yield Select(TIME_SCOPE_OPTIONS, value="24h", allow_blank=False, id="time-scope")
         yield Static("Ready", id="query-status")
 
@@ -51,10 +51,32 @@ class QueryBar(Widget):
     def focus_query(self) -> None:
         self.query_one("#query-input", Input).focus()
 
-    def update_status(self, *, result_count: int, total_count: int, scope: str, mode: str, last_export: str | None) -> None:
+    def set_query(self, value: str) -> None:
+        """Programmatically set the query input without triggering FilterChanged."""
+        input_widget = self.query_one("#query-input", Input)
+        input_widget.value = value
+
+    def update_status(
+        self,
+        *,
+        result_count: int,
+        total_count: int,
+        scope: str,
+        mode: str,
+        last_export: str | None,
+        anomaly_count: int = 0,
+        alert_count: int = 0,
+    ) -> None:
         export_text = last_export or "not exported"
+        badges: list[str] = []
+        if alert_count:
+            badges.append(f"⚑{alert_count} alerts")
+        if anomaly_count:
+            badges.append(f"⚠{anomaly_count} anomalies")
+        badge_str = "  " + "  ".join(badges) if badges else ""
         status = (
-            f"Results {result_count}/{total_count} • Scope {scope} • Mode {mode} "
-            f"• / query • j/k rows • d detail • e/c export • Last export {export_text}"
+            f"Results {result_count}/{total_count} • Scope {scope} • Mode {mode}{badge_str} "
+            f"• / query • j/k rows • p pivot • t timeline • a anomalies • s saved • b tag • ctrl+r history"
+            f"  Last export: {export_text}"
         )
         self.query_one("#query-status", Static).update(status)

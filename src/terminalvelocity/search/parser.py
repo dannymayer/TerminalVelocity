@@ -29,6 +29,8 @@ class SearchQuery:
     until: str | None = None
     sort_by: str = "timestamp"
     sort_desc: bool = True
+    tags: list[str] = field(default_factory=list)
+    include_archived: bool = False
 
     def field_values(self, name: str) -> list[str]:
         return [item.value for item in self.field_filters if item.field == name]
@@ -52,6 +54,13 @@ def parse_query(query: str) -> SearchQuery:
                 continue
             if name == "sort":
                 parsed.sort_by, parsed.sort_desc = _parse_sort(value)
+                continue
+            if name == "tag":
+                parsed.tags.append(value)
+                continue
+            if name == "show":
+                if value.lower() in {"archived", "all"}:
+                    parsed.include_archived = True
                 continue
             if name not in FIELD_NAMES:
                 raise QuerySyntaxError(f"Unsupported field '{name}'")

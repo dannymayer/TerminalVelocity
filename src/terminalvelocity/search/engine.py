@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -39,6 +39,13 @@ class SearchEngine:
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(event_id UNINDEXED, search_text, tokenize='unicode61');
             CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+            CREATE TABLE IF NOT EXISTS event_tags (
+                event_id TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (event_id, tag)
+            );
+            CREATE INDEX IF NOT EXISTS idx_event_tags_tag ON event_tags(tag);
             """
         )
         self.connection.commit()
@@ -70,9 +77,51 @@ class SearchEngine:
         self.connection.execute(f"DELETE FROM events_fts WHERE event_id IN ({placeholders})", ids)
         self.connection.commit()
 
+    def archive_old_events(self, cutoff_hours: int = 168) -> int:
+        """Mark events older than *cutoff_hours* as archived. Returns the count archived."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=cutoff_hours)).isoformat()
+        cursor = self.connection.execute(
+            "UPDATE events SET archived = 1 WHERE archived = 0 AND timestamp < ?",
+            (cutoff,),
+        )
+        self.connection.commit()
+        return cursor.rowcount
+
+    def tag_event(self, event_id: str, tag: str) -> None:
+        """Attach a tag label to an event."""
+        now = datetime.now(timezone.utc).isoformat()
+        self.connection.execute(
+            "INSERT OR IGNORE INTO event_tags(event_id, tag, created_at) VALUES (?, ?, ?)",
+            (event_id, tag.lower().strip(), now),
+        )
+        self.connection.commit()
+
+    def untag_event(self, event_id: str, tag: str) -> None:
+        """Remove a tag label from an event."""
+        self.connection.execute(
+            "DELETE FROM event_tags WHERE event_id = ? AND tag = ?",
+            (event_id, tag.lower().strip()),
+        )
+        self.connection.commit()
+
+    def get_event_tags(self, event_id: str) -> list[str]:
+        """Return all tags for an event, sorted alphabetically."""
+        rows = self.connection.execute(
+            "SELECT tag FROM event_tags WHERE event_id = ? ORDER BY tag ASC",
+            (event_id,),
+        ).fetchall()
+        return [row["tag"] for row in rows]
+
+    def list_tags(self) -> list[str]:
+        """Return all distinct tags in use, sorted alphabetically."""
+        rows = self.connection.execute("SELECT DISTINCT tag FROM event_tags ORDER BY tag ASC").fetchall()
+        return [row["tag"] for row in rows]
+
     def search(self, query: SearchQuery | str, *, limit: int = 100, include_archived: bool = False) -> list[NormalizedEvent]:
         if isinstance(query, str):
             query = parse_query(query)
+        # Respect include_archived from the query object OR the parameter
+        show_archived = include_archived or query.include_archived
         base = "FROM events e"
         where: list[str] = []
         params: list[object] = []
@@ -80,7 +129,12 @@ class SearchEngine:
             base += " JOIN events_fts f ON e.event_id = f.event_id"
             where.append("f.search_text MATCH ?")
             params.append(_fts_query(query.free_text))
-        if not include_archived:
+        if query.tags:
+            for tag in query.tags:
+                base += " JOIN event_tags t{i} ON e.event_id = t{i}.event_id".format(i=len(params))
+                where.append("t{i}.tag = ?".format(i=len(params)))
+                params.append(tag.lower().strip())
+        if not show_archived:
             where.append("e.archived = 0")
         since, until = resolve_time_range(query)
         if since:

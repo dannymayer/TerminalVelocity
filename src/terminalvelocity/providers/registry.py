@@ -3,9 +3,13 @@ from __future__ import annotations
 from typing import Any, Type
 
 from terminalvelocity.providers.base import ProviderAdapter
+from terminalvelocity.providers.defender_cloud_apps import DefenderCloudAppsProvider
 from terminalvelocity.providers.defender_xdr import DefenderXdrProvider
 from terminalvelocity.providers.entra_id import EntraIdProvider
+from terminalvelocity.providers.exchange_online import ExchangeOnlineProvider
 from terminalvelocity.providers.intune import IntuneProvider
+from terminalvelocity.providers.sharepoint_onedrive import SharePointOneDriveProvider
+from terminalvelocity.providers.teams import TeamsProvider
 from terminalvelocity.providers.unified_audit_log import UnifiedAuditLogProvider
 
 ProviderType = Type[ProviderAdapter]
@@ -40,6 +44,13 @@ registry.register("defender", DefenderXdrProvider)
 registry.register("defender_xdr", DefenderXdrProvider)
 registry.register("entra", EntraIdProvider)
 registry.register("entra_id", EntraIdProvider)
+registry.register("exchange", ExchangeOnlineProvider)
+registry.register("exchange_online", ExchangeOnlineProvider)
+registry.register("sharepoint", SharePointOneDriveProvider)
+registry.register("sharepoint_onedrive", SharePointOneDriveProvider)
+registry.register("teams", TeamsProvider)
+registry.register("defender_cloud_apps", DefenderCloudAppsProvider)
+registry.register("mcas", DefenderCloudAppsProvider)
 
 
 def create_provider(name: str, **kwargs: Any) -> ProviderAdapter:
