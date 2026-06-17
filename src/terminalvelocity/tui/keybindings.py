@@ -21,6 +21,7 @@ KEY_BINDINGS = [
     Binding("s", "show_saved_queries", "Saved queries"),
     Binding("b", "tag_event", "Tag event"),
     Binding("ctrl+r", "show_history", "History"),
+    Binding("ctrl+l", "show_logs", "Logs"),
     Binding("question_mark", "show_help", "Help"),
     Binding("q", "quit", "Quit"),
 ]
@@ -36,6 +37,8 @@ HELP_TEXT = """
 [cyan]ctrl+r[/cyan] query history
 
 [cyan]e[/cyan] export JSON   [cyan]c[/cyan] export CSV   [cyan]m[/cyan] export Markdown report
+
+[cyan]ctrl+r[/cyan] query history   [cyan]ctrl+l[/cyan] application log viewer
 
 [b]Query syntax[/b]
   field:value   provider:defender result:failure severity:high

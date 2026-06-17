@@ -108,6 +108,7 @@ class TerminalVelocityApp(App[None]):
         input_events: list[NormalizedEvent] | None = None,
         compare_hours: int | None = None,
         database_path: str | Path | None = None,
+        log_file: str | Path | None = None,
     ) -> None:
         super().__init__()
         self.seed = seed
@@ -123,6 +124,7 @@ class TerminalVelocityApp(App[None]):
         self.filtered_events: list[NormalizedEvent] = []
         self._anomaly_count: int = 0
         self._alert_count: int = 0
+        self._log_file: Path | None = Path(log_file) if log_file is not None else None
 
         # Storage directory for persistence
         _STORAGE_DIR.mkdir(exist_ok=True)
@@ -201,7 +203,9 @@ class TerminalVelocityApp(App[None]):
         client_id = os.environ.get("TERMINALVELOCITY_CLIENT_ID", "")
         client_secret = os.environ.get("TERMINALVELOCITY_CLIENT_SECRET", "")
         if not (tenant_id and client_id and client_secret):
-            self.notify("Live mode: set TERMINALVELOCITY_TENANT_ID/CLIENT_ID/CLIENT_SECRET", severity="warning")
+            msg = "Live mode: set TERMINALVELOCITY_TENANT_ID/CLIENT_ID/CLIENT_SECRET"
+            LOGGER.warning(msg)
+            self.notify(msg, severity="warning")
             return
 
         enabled_names = (
@@ -225,6 +229,7 @@ class TerminalVelocityApp(App[None]):
                     self.events.extend(enriched)
                     new_count += len(enriched)
             except Exception as exc:
+                LOGGER.error("Provider %s error: %s", name, exc, exc_info=True)
                 self.notify(f"Provider {name} error: {exc}", severity="warning")
 
         if new_count:
@@ -331,6 +336,10 @@ class TerminalVelocityApp(App[None]):
                 self.refresh_view()
 
         self.push_screen(HistoryScreen(self.query_history), on_history_result)
+
+    def action_show_logs(self) -> None:
+        from terminalvelocity.tui.screens.log_viewer import LogViewerScreen
+        self.push_screen(LogViewerScreen(self._log_file))
 
     def on_query_bar_filter_changed(self, event: QueryBar.FilterChanged) -> None:
         del event

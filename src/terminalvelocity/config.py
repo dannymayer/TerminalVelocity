@@ -57,6 +57,8 @@ class AppConfig(BaseModel):
     tenants: list[TenantConfig] = Field(default_factory=list)
     providers: list[ProviderConfig] = Field(default_factory=list)
     field_mappings: list[FieldMapping] = Field(default_factory=list)
+    log_file: str | None = None
+    log_level: str = "WARNING"
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "AppConfig":
