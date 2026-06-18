@@ -22,6 +22,13 @@ terminalvelocity = "terminalvelocity.__main__:main"
 [project.optional-dependencies]
 dev = [
   "pytest==8.3.4",
+  # TODO(infrastructure): add static-analysis and formatting tools to the dev
+  # dependency set so they are available to all contributors without extra
+  # setup.  Recommended additions:
+  #   ruff            – fast linter + formatter (replaces flake8/isort/black)
+  #   mypy or pyright – static type checking
+  #   pytest-cov      – test coverage reporting
+  #   pre-commit      – git hook runner to enforce quality gates locally
 ]
 
 [tool.setuptools]
@@ -29,6 +36,14 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# TODO(infrastructure): add [tool.ruff], [tool.mypy], and [tool.coverage.run]
+# sections once those tools are added to the dev dependencies.  Without them
+# contributors have no standardised linting or type-checking configuration.
+
+# TODO(infrastructure): add a CI/CD workflow (e.g. .github/workflows/ci.yml)
+# that runs pytest, the linter, and the type checker on every pull request.
+# Currently there is no automated quality gate.
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

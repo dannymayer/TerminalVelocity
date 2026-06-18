@@ -51,9 +51,18 @@ class SearchEngine:
         self.connection.commit()
 
     def close(self) -> None:
+        # TODO(resource-management): implement __enter__/__exit__ so
+        # SearchEngine can be used as a context manager and its connection is
+        # reliably closed even when callers raise exceptions.  The bare .close()
+        # method is never called in the main application path today.
         self.connection.close()
 
     def index_events(self, events: Iterable[NormalizedEvent]) -> int:
+        # TODO(reliability): wrap the entire batch in a single BEGIN/COMMIT
+        # transaction so a mid-batch failure does not leave partial data
+        # committed.  Currently each event is written individually; the final
+        # commit() only issues a single COMMIT but individual INSERTs still
+        # autocommit in WAL mode if an exception is raised between them.
         indexed_at = datetime.now(timezone.utc).isoformat()
         count = 0
         for event in events:
@@ -151,13 +160,23 @@ class SearchEngine:
         sql = f"SELECT {', '.join(f'e.{column}' for column in COLUMNS)} {base}"
         if where:
             sql += " WHERE " + " AND ".join(where)
+        # TODO(readability): extract the ORDER BY expression building into a
+        # dedicated helper method.  The current single-line ternary chain is
+        # hard to follow and extend (e.g. adding a new sort key requires
+        # modifying a deeply nested expression).
         order = "LOWER(COALESCE(e.provider, ''))" if query.sort_by == "provider" else ("CASE LOWER(COALESCE(e.severity, '')) WHEN 'critical' THEN 5 WHEN 'high' THEN 4 WHEN 'medium' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 WHEN 'informational' THEN 0 WHEN 'info' THEN 0 ELSE -1 END" if query.sort_by == "severity" else "e.timestamp")
         sql += f" ORDER BY {order} {'DESC' if query.sort_desc else 'ASC'}, e.timestamp DESC LIMIT ?"
         rows = self.connection.execute(sql, [*params, limit]).fetchall()
+        # TODO(readability): expand the row-to-NormalizedEvent mapping into a
+        # named helper (e.g. _row_to_event) so this line is not 180+ chars and
+        # is easier to maintain when the schema changes.
         return [NormalizedEvent(timestamp=row['timestamp'], provider=row['provider'], service=row['service'], tenant_id=row['tenant_id'], actor=row['actor'], action=row['action'], target=row['target'], result=row['result'], severity=row['severity'], correlation_id=row['correlation_id'], request_id=row['request_id'], raw=json.loads(row['raw_json'])) for row in rows]
 
     @staticmethod
     def _build_search_text(event: NormalizedEvent) -> str:
+        # TODO(readability): extract to a named helper that lists each field
+        # explicitly instead of relying on a long positional tuple — easier to
+        # extend when the schema gains new searchable fields.
         return " ".join(part for part in [event.provider, event.service, event.tenant_id, event.actor, event.action, event.target, event.result, event.severity, event.correlation_id, event.request_id, event.raw_json()] if part)
 
 

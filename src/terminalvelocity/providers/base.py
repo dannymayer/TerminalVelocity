@@ -259,6 +259,13 @@ class MCASClient(JSONAPIClient):
 # Synchronous base provider (used by phase-3 providers)
 # ---------------------------------------------------------------------------
 
+# TODO(naming): the codebase has two abstract provider base classes:
+#   - BaseProvider (sync, used by phase-3 providers below)
+#   - BaseProviderAdapter (async, used by phase-2 providers further down)
+# The similar names are confusing.  Consider renaming to SyncBaseProvider /
+# AsyncBaseProvider (or SyncProviderAdapter / AsyncProviderAdapter) and
+# documenting the distinction in a top-level docstring so contributors
+# choose the right base class.
 class BaseProvider(ABC):
     """Common provider contract for time-window polling adapters."""
 
@@ -392,6 +399,11 @@ class AuditLogQueryProvider(BaseProvider):
                 raise ProviderFetchError(f"{self.provider_name} audit query {query_id} failed with status {status}")
             if status not in PENDING_QUERY_STATUSES:
                 raise ProviderFetchError(f"{self.provider_name} audit query {query_id} returned unexpected status {status}")
+            # TODO(blocking): time.sleep() here blocks the calling thread for
+            # the full poll interval.  If this synchronous provider is ever
+            # called from an async context (e.g. via run_in_executor), consider
+            # converting to asyncio.sleep() or moving the polling loop to an
+            # async method.
             time.sleep(self.query_poll_interval)
         raise ProviderFetchError(f"{self.provider_name} audit query {query_id} timed out after {self.query_timeout}")
 

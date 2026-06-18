@@ -46,6 +46,11 @@ def ingest_file(
     if not p.exists():
         raise FileIngestionError(f"File not found: {path}")
 
+    # TODO(security/performance): add an upper bound on file size before
+    # reading into memory (e.g. reject files > 256 MB).  Large or malicious
+    # files could exhaust heap memory.  Consider streaming JSONL parsing for
+    # very large inputs instead of reading the whole file at once.
+
     suffix = p.suffix.lower()
 
     if suffix == ".csv":
@@ -59,6 +64,9 @@ def ingest_file(
         try:
             events = _ingest_jsonl(p, field_mappings=field_mappings)
         except Exception:
+            # TODO(error-handling): the bare `except Exception` swallows the
+            # JSONL parse error before trying JSON.  Log the original exception
+            # at DEBUG level so operators can diagnose misformatted files.
             try:
                 events = _ingest_json(p, field_mappings=field_mappings)
             except Exception as exc:

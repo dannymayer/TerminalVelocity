@@ -40,6 +40,11 @@ class AnomalyDetector:
         return anomalies
 
     def _rare_actions(self, events: list[NormalizedEvent]) -> list[AnomalyMarker]:
+        # TODO(false-positives): flagging every action seen only once produces
+        # a high volume of noise on sparse or freshly-ingested datasets.  Consider
+        # requiring a minimum total event count before activating this heuristic,
+        # or using a baseline frequency threshold (e.g. < 1 % of total events)
+        # rather than an absolute count of 1.
         counts = Counter((event.provider, event.action) for event in events if event.action)
         return [AnomalyMarker(kind="rare_action", description=f"Rare action detected: {event.action}", events=[event]) for event in events if event.action and counts[(event.provider, event.action)] == 1]
 

@@ -23,6 +23,11 @@ class HighlightRule(BaseModel):
     def matches_event(self, event: NormalizedEvent) -> bool:
         """Return True when all configured match criteria match the event."""
 
+        # TODO(feature): match logic is strict AND across all fields with no
+        # support for OR semantics (e.g. "severity is high OR critical").
+        # Consider extending HighlightRule to accept a list of values per
+        # field (already partially supported via Sequence), and/or add a
+        # top-level "any_of" key to allow OR-chaining of entire conditions.
         for field_name, expected in self.match.items():
             actual = getattr(event, field_name, None)
             if isinstance(expected, Sequence) and not isinstance(expected, str):

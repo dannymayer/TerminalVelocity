@@ -18,6 +18,10 @@ class SavedQuery:
 
 
 class SavedQueryStore:
+    # TODO(resource-management): the SQLite connection is never explicitly
+    # closed.  Add __enter__/__exit__ (context-manager) support, or a close()
+    # method and ensure it is called at application shutdown, to avoid
+    # unclosed-connection warnings from SQLite and potential data loss.
     def __init__(self, database_path: str | Path = ":memory:") -> None:
         self.connection = sqlite3.connect(str(database_path))
         self.connection.row_factory = sqlite3.Row
