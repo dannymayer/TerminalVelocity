@@ -15,6 +15,10 @@ class TenantConfig(BaseModel):
 
     tenant_id: str
     client_id: str
+    # TODO(security): client_secret is stored as a plain str. Replace with
+    # pydantic.SecretStr so the value is masked in repr/logs and never
+    # serialised accidentally.  Callers would then access it via
+    # .get_secret_value().  Reference: https://docs.pydantic.dev/latest/concepts/types/#secret-types
     client_secret: str
     display_name: str | None = None
 

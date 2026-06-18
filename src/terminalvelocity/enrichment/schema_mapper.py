@@ -148,6 +148,11 @@ class SchemaMapper:
             target=normalize_target(target_value),
             result=normalize_result(extract_first(payload, *tuple(result_paths))),
             severity=normalize_severity(extract_first(payload, *tuple(severity_paths))),
+            # TODO(bug): correlation_id and request_id are processed through
+            # normalize_target(), which is designed for human-readable display
+            # names (dicts, lists, etc.).  They should use a dedicated
+            # normalize_id() helper — or just str() — so that structured
+            # payloads are not accidentally formatted as "a, b, c".
             correlation_id=normalize_target(extract_first(payload, *tuple(correlation_paths))),
             request_id=normalize_target(extract_first(payload, *tuple(request_paths))),
             raw=raw or payload,

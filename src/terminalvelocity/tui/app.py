@@ -209,6 +209,9 @@ class TerminalVelocityApp(App[None]):
             try:
                 self._highlight_engine = HighlightRuleEngine.from_path(rules_path)
             except Exception:
+                # TODO(reliability): log the parse failure at WARNING level
+                # instead of silently discarding it.  Operators need visibility
+                # when their custom alert rules fail to load.
                 pass
 
         self._input_events = input_events or []
@@ -245,6 +248,10 @@ class TerminalVelocityApp(App[None]):
             self.sub_title = "Live – connecting to M365 providers…"
             self.events = []
             self.set_interval(self.config.poll_interval_seconds, self._poll_providers)
+            # TODO(deprecation): asyncio.ensure_future() is deprecated in
+            # Python 3.10+ in favour of asyncio.create_task().  Switch to
+            # asyncio.get_event_loop().create_task() or asyncio.create_task()
+            # once the minimum Python version is confirmed to be ≥ 3.10.
             asyncio.ensure_future(self._poll_providers())
         else:
             self.sub_title = "Demo mode"

@@ -58,4 +58,9 @@ class QueryHistoryStore:
         self.connection.commit()
 
     def close(self) -> None:
+        # TODO(resource-management): close() exists but is never called in the
+        # main application path (TerminalVelocityApp holds the store for its
+        # lifetime and does not call close() on shutdown).  Either call close()
+        # in the app's on_unmount hook or implement __enter__/__exit__ so the
+        # store can be used as a context manager.
         self.connection.close()
