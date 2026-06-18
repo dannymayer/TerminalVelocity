@@ -16,7 +16,15 @@ class UnifiedAuditLogProvider(BaseProviderAdapter):
 
     def __init__(self, *, content_types: Sequence[str] | None = None, auto_start_subscriptions: bool = False, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.content_types = tuple(content_types or ("Audit.AzureActiveDirectory", "Audit.Exchange", "Audit.General", "Audit.SharePoint"))
+        self.content_types = tuple(content_types or (
+            "Audit.AzureActiveDirectory",
+            "Audit.Exchange",
+            "Audit.General",
+            "Audit.SharePoint",
+            "DLP.All",
+            "Audit.PowerBI",
+            "MicrosoftForms",
+        ))
         self.auto_start_subscriptions = auto_start_subscriptions
         self.connection_test_url = self._management_url("subscriptions/list")
 
@@ -61,7 +69,81 @@ class UnifiedAuditLogProvider(BaseProviderAdapter):
         return events
 
     def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
-        return NormalizedEvent(timestamp=payload["CreationTime"], provider=self.provider_name, service=str(payload.get("Workload") or payload.get("RecordType") or "Microsoft Purview"), tenant_id=payload.get("OrganizationId") or self.tenant_id, actor=payload.get("UserId") or payload.get("UserKey") or payload.get("ClientIP"), action=str(payload.get("Operation") or payload.get("Activity") or "unknown"), target=payload.get("ObjectId") or payload.get("ItemName") or payload.get("SiteUrl"), result=map_result(payload.get("ResultStatus") or payload.get("Status")), severity=payload.get("Severity"), correlation_id=payload.get("CorrelationId"), request_id=payload.get("Id") or payload.get("RequestId"), raw=dict(payload))
+        workload = str(payload.get("Workload") or payload.get("RecordType") or "")
+        operation = str(payload.get("Operation") or payload.get("Activity") or "unknown")
+
+        # DLP policy match events
+        if workload == "SecurityComplianceCenter" or payload.get("RecordType") in {11, "DLP"} or "DlpSharePointClassificationInfo" in payload or "PolicyDetails" in payload:
+            policy_details = payload.get("PolicyDetails") or [{}]
+            policy_name = (policy_details[0] if isinstance(policy_details, list) and policy_details else {}).get("PolicyName") or operation
+            sensitive_types = payload.get("SensitiveInfoTypeData") or payload.get("ClassificationRuleDetails") or []
+            target = payload.get("ObjectId") or payload.get("ItemName") or payload.get("SiteUrl")
+            return NormalizedEvent(
+                timestamp=payload["CreationTime"],
+                provider=self.provider_name,
+                service="Microsoft Purview DLP",
+                tenant_id=payload.get("OrganizationId") or self.tenant_id,
+                actor=payload.get("UserId") or payload.get("UserKey"),
+                action=policy_name,
+                target=target,
+                result=map_result(payload.get("ResultStatus") or payload.get("EnforcementMode") or payload.get("Action")),
+                severity="high" if sensitive_types else None,
+                correlation_id=payload.get("CorrelationId"),
+                request_id=payload.get("Id") or payload.get("RequestId"),
+                raw=dict(payload),
+            )
+
+        # Power BI events
+        if workload == "PowerBI" or payload.get("RecordType") in {20, "PowerBIAudit"}:
+            dataset = payload.get("DatasetName") or payload.get("ReportName") or payload.get("WorkspaceName")
+            return NormalizedEvent(
+                timestamp=payload["CreationTime"],
+                provider=self.provider_name,
+                service="Microsoft Power BI",
+                tenant_id=payload.get("OrganizationId") or self.tenant_id,
+                actor=payload.get("UserId") or payload.get("UserKey"),
+                action=operation,
+                target=dataset or payload.get("ObjectId"),
+                result=map_result(payload.get("ResultStatus") or payload.get("Status")),
+                severity=payload.get("Severity"),
+                correlation_id=payload.get("CorrelationId"),
+                request_id=payload.get("Id") or payload.get("RequestId"),
+                raw=dict(payload),
+            )
+
+        # Microsoft Forms events
+        if workload == "MicrosoftForms" or payload.get("RecordType") in {62, "MicrosoftForms"}:
+            form_name = payload.get("FormName") or payload.get("ObjectId")
+            return NormalizedEvent(
+                timestamp=payload["CreationTime"],
+                provider=self.provider_name,
+                service="Microsoft Forms",
+                tenant_id=payload.get("OrganizationId") or self.tenant_id,
+                actor=payload.get("UserId") or payload.get("UserKey"),
+                action=operation,
+                target=form_name or payload.get("ItemName") or payload.get("SiteUrl"),
+                result=map_result(payload.get("ResultStatus") or payload.get("Status")),
+                severity=payload.get("Severity"),
+                correlation_id=payload.get("CorrelationId"),
+                request_id=payload.get("Id") or payload.get("RequestId"),
+                raw=dict(payload),
+            )
+
+        # Default — all other UAL workloads
+        return NormalizedEvent(
+            timestamp=payload["CreationTime"],
+            provider=self.provider_name,
+            service=str(workload or "Microsoft Purview"),
+            tenant_id=payload.get("OrganizationId") or self.tenant_id,
+            actor=payload.get("UserId") or payload.get("UserKey") or payload.get("ClientIP"),
+            action=operation,
+            target=payload.get("ObjectId") or payload.get("ItemName") or payload.get("SiteUrl"),
+            result=map_result(payload.get("ResultStatus") or payload.get("Status")),
+            severity=payload.get("Severity"),
+            correlation_id=payload.get("CorrelationId"),
+            request_id=payload.get("Id") or payload.get("RequestId"),
+            raw=dict(payload),
+        )
 
     def _management_url(self, operation: str) -> str:
         return f"https://manage.office.com/api/v1.0/{self.tenant_id}/activity/feed/{operation}"

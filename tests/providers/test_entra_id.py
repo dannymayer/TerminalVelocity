@@ -18,6 +18,11 @@ def test_entra_id_fetch_normalizes_signin_and_audit_logs(state_dir) -> None:
             return httpx.Response(200, json={"value": [{"id": "signin-1", "createdDateTime": "2025-01-01T00:08:00Z", "userPrincipalName": "user@contoso.com", "resourceDisplayName": "Microsoft Graph", "correlationId": "corr-3", "status": {"errorCode": 0}, "riskLevelAggregated": "none"}]})
         if path.endswith("/auditLogs/directoryAudits"):
             return httpx.Response(200, json={"value": [{"id": "audit-2", "activityDateTime": "2025-01-01T00:09:00Z", "activityDisplayName": "Add application", "category": "ApplicationManagement", "loggedByService": "Core Directory", "initiatedBy": {"app": {"displayName": "Terraform"}}, "targetResources": [{"displayName": "Contoso App"}], "result": "success"}]})
+        # New endpoints return empty lists so the test stays focused on the original two
+        if path.endswith("/auditLogs/servicePrincipals"):
+            return httpx.Response(200, json={"value": []})
+        if path.endswith("/auditLogs/provisioning"):
+            return httpx.Response(200, json={"value": []})
         raise AssertionError(f"Unexpected request: {request.method} {request.url}")
 
     async def scenario() -> None:
