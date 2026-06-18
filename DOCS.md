@@ -59,6 +59,8 @@ src/terminalvelocity/
 ├── __main__.py              # CLI entry point (terminalvelocity command)
 ├── schema.py                # NormalizedEvent, ProviderCheckpoint, ProviderStatus
 ├── models.py                # additional shared models
+├── config.py                # AppConfig YAML loader
+├── ingestion.py             # file-based event ingestion (JSONL/JSON/CSV)
 ├── providers/
 │   ├── base.py              # abstract ProviderAdapter, HTTP clients, retry logic
 │   ├── registry.py          # provider discovery and registration
@@ -77,13 +79,15 @@ src/terminalvelocity/
 │   ├── index.py             # incremental indexing helpers
 │   ├── anomaly.py           # anomaly detection
 │   ├── correlator.py        # cross-event correlation
-│   └── saved_queries.py     # persistent named queries
+│   ├── saved_queries.py     # persistent named queries
+│   └── history.py           # persistent query history store
 ├── investigation/
 │   ├── pivot.py             # pivot from event to related activity
 │   ├── timeline.py          # actor/target timeline builder
 │   ├── highlight_rules.py   # YAML-driven highlight and alert rules
 │   ├── export.py            # JSON and CSV export
-│   └── replay.py            # raw-event replay from cache
+│   ├── replay.py            # raw-event replay from cache
+│   └── performance.py       # LRU cache, pagination helpers, deduplication
 ├── enrichment/
 │   ├── cross_provider.py    # cross-provider event enrichment
 │   └── schema_mapper.py     # field normalization helpers
@@ -94,6 +98,14 @@ src/terminalvelocity/
     ├── app.py               # TerminalVelocityApp (Textual App subclass)
     ├── keybindings.py       # key binding definitions
     ├── themes.py            # CSS / theme constants
+    ├── screens/
+    │   ├── pivot.py         # pivot to related events
+    │   ├── timeline.py      # actor/target activity timeline
+    │   ├── anomaly.py       # anomaly detection panel
+    │   ├── saved_queries.py # save/recall named queries
+    │   ├── tag.py           # tag events with labels
+    │   ├── history.py       # query history browser
+    │   └── log_viewer.py    # in-TUI application log viewer
     └── widgets/
         ├── query_bar.py     # top query and time-scope bar
         ├── provider_panel.py# left sidebar: provider status
@@ -146,6 +158,14 @@ src/terminalvelocity/
 | `d` | Toggle detail panel visibility |
 | `e` | Export filtered events to JSON |
 | `c` | Export filtered events to CSV |
+| `m` | Export filtered events to Markdown report |
+| `p` | Pivot to related events (same actor/target/session) |
+| `t` | Open timeline for the selected event's actor/target |
+| `a` | Open anomaly detection panel |
+| `s` | Open saved queries panel |
+| `b` | Tag the selected event with a label |
+| `ctrl+r` | Browse query history |
+| `ctrl+l` | Open application log viewer |
 | `?` | Show help overlay |
 | `q` | Quit |
 
@@ -272,7 +292,15 @@ Supply M365 credentials via environment variables:
 |---|---|---|
 | `--seed` | `365` | Random seed for demo event generation |
 | `--count` | `72` | Number of demo events to generate |
-| `--headless-smoke` | off | Run non-interactive smoke test and exit |
+| `--live` | off | Connect to real Microsoft 365 providers using environment credentials |
+| `--input FILE` | — | Ingest events from a local JSONL, JSON, or CSV file |
+| `--provider NAME` | — | Override provider name for all events loaded via `--input` |
+| `--service NAME` | — | Override service name for all events loaded via `--input` |
+| `--compare HOURS` | — | Set initial query scope to the last N hours (e.g. `--compare 48` starts with `since:48h`) |
+| `--config FILE` | — | Path to a `terminalvelocity.yaml` configuration file |
+| `--log-file FILE` | `.terminalvelocity/app.log` | Path to the application log file |
+| `--log-level LEVEL` | `WARNING` | Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
+| `--headless-smoke` | off | Run a non-interactive smoke test and exit |
 
 ---
 

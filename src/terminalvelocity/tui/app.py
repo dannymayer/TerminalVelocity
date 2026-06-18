@@ -193,6 +193,9 @@ class TerminalVelocityApp(App[None]):
             self.engine.index_events(enriched)
             self.events = enriched
 
+        if self.compare_hours is not None:
+            self.query_one(QueryBar).set_query(f"since:{self.compare_hours}h")
+
         self.refresh_view()
         self.query_one(EventTable).focus_table()
 

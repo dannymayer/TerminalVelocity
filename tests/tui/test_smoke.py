@@ -42,6 +42,17 @@ def test_tui_smoke() -> None:
     asyncio.run(run())
 
 
+def test_compare_hours_sets_initial_query() -> None:
+    async def run() -> None:
+        app = TerminalVelocityApp(seed=42, count=18, compare_hours=12)
+
+        async with app.run_test(size=(150, 45)) as pilot:
+            await pilot.pause()
+            assert app.query_one(QueryBar).query == "since:12h"
+
+    asyncio.run(run())
+
+
 def test_demo_mode_used_when_credentials_absent() -> None:
     """App uses mock data when env vars are not set."""
     async def run() -> None:
