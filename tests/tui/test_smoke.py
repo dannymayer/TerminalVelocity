@@ -10,9 +10,9 @@ from terminalvelocity.tui.widgets.query_bar import QueryBar
 
 def test_mock_filtering_supports_field_queries() -> None:
     events = generate_mock_events(count=12, seed=42)
-    filtered = filter_events(events, "provider:defender result:failure", "all")
+    filtered = filter_events(events, "provider:defender_xdr result:failure", "all")
     assert filtered
-    assert all(event.provider == "defender" for event in filtered)
+    assert all(event.provider == "defender_xdr" for event in filtered)
     assert all(event.result == "failure" for event in filtered)
 
 
@@ -25,7 +25,7 @@ def test_tui_smoke() -> None:
             assert app.query_one(QueryBar)
             assert app.query_one(ProviderPanel)
             assert app.query_one(EventTable).row_count > 0
-            assert app.query_one(DetailPanel).display is True
+            assert app.query_one("#detail-right", DetailPanel).display is True
 
             await pilot.press("z")
             await pilot.pause()

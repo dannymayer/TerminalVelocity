@@ -30,6 +30,7 @@ from terminalvelocity.search.history import QueryHistoryStore
 from terminalvelocity.search.saved_queries import SavedQueryStore
 from terminalvelocity.tui.keybindings import HELP_TEXT, KEY_BINDINGS
 from terminalvelocity.tui.themes import APP_CSS
+from terminalvelocity.tui.widgets.charts_strip import ChartsStrip
 from terminalvelocity.tui.widgets.detail_panel import DetailPanel
 from terminalvelocity.tui.widgets.event_table import EventTable
 from terminalvelocity.tui.widgets.provider_panel import ProviderPanel
@@ -37,11 +38,22 @@ from terminalvelocity.tui.widgets.query_bar import QueryBar
 
 LOGGER = logging.getLogger(__name__)
 
+# All 14 M365 providers matching the design
 PROVIDER_CATALOG = [
     ("entra", "signin"),
-    ("defender", "incident"),
+    ("identity_protection", "risk"),
+    ("pim", "role"),
+    ("defender_xdr", "incident"),
+    ("advanced_hunting", "DeviceEvents"),
+    ("defender_cloud_apps", "activity"),
     ("intune", "device"),
-    ("purview", "audit"),
+    ("unified_audit_log", "DLP"),
+    ("exchange_online", "trace"),
+    ("sharepoint_onedrive", "sharing"),
+    ("teams", "messaging"),
+    ("secure_score", "posture"),
+    ("service_health", "incident"),
+    ("attack_simulation", "sim"),
 ]
 
 ACTORS = [
@@ -53,17 +65,73 @@ ACTORS = [
 ]
 
 ACTIONS = {
-    "entra": ["sign-in", "token-refresh", "mfa-challenge", "app-consent"],
-    "defender": ["alert-opened", "device-isolated", "incident-updated", "malware-detected"],
-    "intune": ["policy-sync", "device-enroll", "compliance-check", "script-run"],
-    "purview": ["mailbox-search", "audit-export", "retention-change", "label-apply"],
+    "entra": ["sign-in", "token-refresh", "mfa-challenge", "app-consent", "Add app role assignment"],
+    "identity_protection": ["impossibleTravel risk detection", "unfamiliarFeatures risk detection", "riskySignIn"],
+    "pim": ["Activate Global Administrator", "Deactivate Security Reader", "role-assignment-added"],
+    "defender_xdr": ["Suspicious inbox rule after risky sign-in", "Defender alert · LSASS access", "incident-created", "alert-opened"],
+    "advanced_hunting": ["PowerShellExecution", "ProcessCreated", "NetworkConnectionEvents", "FileCreated"],
+    "defender_cloud_apps": ["Mass download detected", "admin-quarantine", "policy-match"],
+    "intune": ["policy-sync", "compliance-check failed", "device-enroll", "script-run"],
+    "unified_audit_log": ["DLPRuleMatch · Credit Card", "ExportReport", "mailbox-search", "label-apply"],
+    "exchange_online": ["New-InboxRule · forward to external", "MessageTrace · quarantined", "MessageTrace"],
+    "sharepoint_onedrive": ["AnonymousLinkCreated", "FileDownloaded", "FileViewed", "SitePermissionModified"],
+    "teams": ["ExternalAccessChanged", "MessageSent", "admin-policy-change"],
+    "secure_score": ["SecureScoreSnapshot · −6 vs avg", "ControlProfileSync"],
+    "service_health": ["EX_Advisory · mail delays", "SPO_Incident · degraded performance"],
+    "attack_simulation": ["CredentialsEntered", "SimulationLaunched", "ReportedPhish"],
 }
 
 TARGETS = {
-    "entra": ["tenant", "service-principal", "user-session"],
-    "defender": ["device-042", "host-db-01", "mailbox-ops"],
-    "intune": ["device-129", "policy-baseline", "win11-fleet"],
-    "purview": ["case-12", "mailbox-ceo", "site-legal"],
+    "entra": ["Office 365", "Microsoft Graph", "sp/Graph", "tenant"],
+    "identity_protection": ["—", "tenant"],
+    "pim": ["role/Global Admin", "role/Sec Reader", "role/Exchange Admin"],
+    "defender_xdr": ["mailbox/alex", "host-db-01", "device-042"],
+    "advanced_hunting": ["host-db-01", "win11-fleet", "device-042"],
+    "defender_cloud_apps": ["OneDrive/Finance", "SharePoint/Legal", "OneDrive/HR"],
+    "intune": ["win11-fleet", "device-129", "policy-baseline"],
+    "unified_audit_log": ["mail/outbound", "workspace/exec", "case-12"],
+    "exchange_online": ["mailbox/alex", "mail/inbound", "mail/outbound"],
+    "sharepoint_onedrive": ["site/legal", "site/finance", "site/marketing"],
+    "teams": ["org/federation", "team/engineering", "team/finance"],
+    "secure_score": ["tenant"],
+    "service_health": ["Exchange Online", "SharePoint Online"],
+    "attack_simulation": ["sim/Q2-Phish", "sim/Credential-Harvest"],
+}
+
+# Provider states matching the design prototype
+_PROVIDER_STATES = {
+    "entra": "ok",
+    "identity_protection": "warn",
+    "pim": "ok",
+    "defender_xdr": "error",
+    "advanced_hunting": "ok",
+    "defender_cloud_apps": "ok",
+    "intune": "ok",
+    "unified_audit_log": "warn",
+    "exchange_online": "ok",
+    "sharepoint_onedrive": "ok",
+    "teams": "ok",
+    "secure_score": "ok",
+    "service_health": "warn",
+    "attack_simulation": "ok",
+}
+
+# Lag seconds matching the design prototype
+_PROVIDER_LAGS = {
+    "entra": 2,
+    "identity_protection": 31,
+    "pim": 5,
+    "defender_xdr": 0,
+    "advanced_hunting": 12,
+    "defender_cloud_apps": 8,
+    "intune": 44,
+    "unified_audit_log": 118,
+    "exchange_online": 9,
+    "sharepoint_onedrive": 14,
+    "teams": 6,
+    "secure_score": 3600,
+    "service_health": 40,
+    "attack_simulation": 22,
 }
 
 SEVERITIES = ["low", "medium", "high", "critical"]
@@ -76,7 +144,6 @@ TIME_SCOPES = {
     "24h": timedelta(hours=24),
 }
 
-# Internal storage paths
 _STORAGE_DIR = Path(".terminalvelocity")
 
 
@@ -126,10 +193,8 @@ class TerminalVelocityApp(App[None]):
         self._alert_count: int = 0
         self._log_file: Path | None = Path(log_file) if log_file is not None else None
 
-        # Storage directory for persistence
         _STORAGE_DIR.mkdir(exist_ok=True)
 
-        # Core services — use caller-supplied path or default persistent store
         db_path = database_path if database_path is not None else _STORAGE_DIR / "index.db"
         self.engine = SearchEngine(db_path)
         self.saved_queries = SavedQueryStore(_STORAGE_DIR / "saved_queries.db")
@@ -138,7 +203,6 @@ class TerminalVelocityApp(App[None]):
         self._enricher = CrossProviderEnricher()
         self._anomaly_detector = AnomalyDetector()
 
-        # Highlight rules engine
         self._highlight_engine: HighlightRuleEngine | None = None
         rules_path = self.config.highlight_rules_path or "config/highlight_rules.yaml"
         if Path(rules_path).exists():
@@ -147,12 +211,10 @@ class TerminalVelocityApp(App[None]):
             except Exception:
                 pass
 
-        # Pre-loaded events from file ingestion
         self._input_events = input_events or []
 
     @property
     def detail_mode(self) -> str:
-        """Return 'deep' when deep-detail mode is active, else 'overview'."""
         return "deep" if self.deep_detail else "overview"
 
     def compose(self) -> ComposeResult:
@@ -161,6 +223,7 @@ class TerminalVelocityApp(App[None]):
         with Horizontal(id="workspace"):
             yield ProviderPanel(id="provider-panel")
             with Vertical(id="center-stack"):
+                yield ChartsStrip(id="charts-strip")
                 with Horizontal(id="overview-pane"):
                     yield EventTable(id="event-table")
                     yield DetailPanel(id="detail-right")
@@ -170,7 +233,6 @@ class TerminalVelocityApp(App[None]):
     async def on_mount(self) -> None:
         self.title = "TerminalVelocity"
 
-        # Configure event table
         table = self.query_one(EventTable)
         if self._highlight_engine:
             table.set_highlight_engine(self._highlight_engine)
@@ -200,7 +262,6 @@ class TerminalVelocityApp(App[None]):
         self.query_one(EventTable).focus_table()
 
     async def _poll_providers(self) -> None:
-        """Fetch events from live providers and index them."""
         from terminalvelocity.providers.registry import registry
         tenant_id = os.environ.get("TERMINALVELOCITY_TENANT_ID", "")
         client_id = os.environ.get("TERMINALVELOCITY_CLIENT_ID", "")
@@ -378,6 +439,19 @@ class TerminalVelocityApp(App[None]):
             alert_count=self._alert_count,
         )
         self.query_one(EventTable).set_events(self.filtered_events)
+
+        # Update charts strip
+        self.query_one(ChartsStrip).update_charts(
+            events=self.filtered_events,
+            total_count=len(self.events),
+            alert_count=self._alert_count,
+            anomaly_count=self._anomaly_count,
+        )
+
+        # Update detail context so Chain tab can find related events
+        for panel in self.query(DetailPanel):
+            panel.set_event_context(self.filtered_events)
+
         self.update_status_line()
         if not self.filtered_events:
             self.update_detail_panels(None)
@@ -406,8 +480,8 @@ class TerminalVelocityApp(App[None]):
         )
 
     def update_detail_panels(self, event: NormalizedEvent | None) -> None:
-        self.query_one("#detail-right", DetailPanel).show_event(event)
-        self.query_one("#detail-bottom", DetailPanel).show_event(event)
+        for panel in self.query(DetailPanel):
+            panel.show_event(event)
 
     def export_filtered(self, filetype: str, destination: Path | None = None) -> Path:
         timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -448,7 +522,7 @@ class TerminalVelocityApp(App[None]):
 
 
 # ---------------------------------------------------------------------------
-# Standalone helpers (used by tests and headless context)
+# Standalone helpers
 # ---------------------------------------------------------------------------
 
 def apply_filters_fallback(
@@ -456,7 +530,6 @@ def apply_filters_fallback(
     query: str,
     scope: str,
 ) -> list[NormalizedEvent]:
-    """Manual filter used when the SearchEngine is unavailable."""
     cutoff = None
     delta = TIME_SCOPES.get(scope)
     if delta is not None:
@@ -491,58 +564,133 @@ def filter_events(events: list[NormalizedEvent], query: str, scope: str) -> list
     return apply_filters_fallback(events, query, scope)
 
 
-def generate_mock_dataset(*, seed: int, count: int) -> tuple[list[NormalizedEvent], list[ProviderStatus]]:
-    rng = random.Random(seed)
-    now = datetime.now(tz=UTC)
-    events: list[NormalizedEvent] = []
-    provider_counts: Counter[str] = Counter()
-    for index in range(count):
-        provider, service = PROVIDER_CATALOG[index % len(PROVIDER_CATALOG)]
-        action = rng.choice(ACTIONS[provider])
-        result = rng.choice(RESULTS)
-        severity = "critical" if result == "failure" and rng.random() > 0.55 else rng.choice(SEVERITIES)
-        actor = rng.choice(ACTORS)
-        target = rng.choice(TARGETS[provider])
-        timestamp = now - timedelta(minutes=rng.randint(0, 23 * 60), seconds=rng.randint(0, 59))
-        correlation_id = f"corr-{seed}-{index:03d}"
-        request_id = f"req-{seed}-{index:03d}"
-        raw = {
-            "ip": f"10.0.{rng.randint(1, 9)}.{rng.randint(10, 240)}",
-            "tenant_id": "contoso-tenant",
-            "actor": actor,
-            "target": target,
-            "provider": provider,
-            "service": service,
-            "action": action,
-            "result": result,
-            "severity": severity,
-            "device_id": f"device-{rng.randint(100, 999)}",
-            "risk_flags": [flag for flag in ("impossible-travel", "burst-failures", "admin-op") if rng.random() > 0.72],
-        }
-        events.append(
-            NormalizedEvent(
-                timestamp=timestamp,
-                provider=provider,
-                service=service,
-                actor=actor,
-                action=action,
-                target=target,
-                result=result,
-                severity=severity,
-                correlation_id=correlation_id,
-                request_id=request_id,
-                raw=raw,
-            )
+def _design_demo_events(now: datetime) -> list[NormalizedEvent]:
+    """Return the 24 scenario events from the TerminalVelocity design prototype."""
+    # All offsets relative to design reference time 14:23:41 UTC
+    ref_sec = 14 * 3600 + 23 * 60 + 41
+
+    def _ts(h: int, m: int, s: int) -> datetime:
+        event_sec = h * 3600 + m * 60 + s
+        return now - timedelta(seconds=max(0, ref_sec - event_sec))
+
+    def _ev(
+        h: int, m: int, s: int,
+        provider: str, service: str,
+        actor: str, action: str, target: str,
+        result: str, severity: str,
+        corr: str | None = None,
+        ip: str = "10.0.0.1",
+        risk_flags: list[str] | None = None,
+    ) -> NormalizedEvent:
+        return NormalizedEvent(
+            timestamp=_ts(h, m, s),
+            provider=provider,
+            service=service,
+            actor=actor,
+            action=action,
+            target=target,
+            result=result,
+            severity=severity,
+            correlation_id=corr,
+            raw={
+                "ip": ip,
+                "risk_flags": risk_flags or [],
+                "tenant_id": "contoso-tenant",
+            },
         )
-        provider_counts[provider] += 1
+
+    return [
+        _ev(14,23,39, "defender_xdr","incident","alex@contoso.com","Suspicious inbox rule after risky sign-in","mailbox/alex","failure","critical","INC-4471","185.220.101.42",["admin-op","impossible-travel"]),
+        _ev(14,22,55, "exchange_online","admin","alex@contoso.com","New-InboxRule · forward to external","mailbox/alex","failure","high","INC-4471","185.220.101.42",["rare-action"]),
+        _ev(14,21,10, "entra","signin","alex@contoso.com","Sign-in","Office 365","success","high","INC-4471","185.220.101.42",["impossible-travel"]),
+        _ev(14,20,30, "entra","signin","alex@contoso.com","Sign-in","Office 365","failure","medium","INC-4471","185.220.101.42",["burst-failures"]),
+        _ev(14,19, 5, "identity_protection","risk","alex@contoso.com","impossibleTravel risk detection","—","atrisk","critical","INC-4471","185.220.101.42",["impossible-travel"]),
+        _ev(14,18,40, "pim","role","jamie@contoso.com","Activate Global Administrator","role/Global Admin","success","critical","PIM-228","10.0.4.18",["admin-op"]),
+        _ev(14,17,12, "attack_simulation","sim","lee@contoso.com","CredentialsEntered","sim/Q2-Phish","failure","critical",None,"10.0.2.55"),
+        _ev(14,15,48, "defender_cloud_apps","activity","svc-sync@contoso.com","Mass download detected","OneDrive/Finance","failure","high",None,"52.114.7.9"),
+        _ev(14,14, 3, "advanced_hunting","DeviceEvents","svc-sync@contoso.com","PowerShellExecution","host-db-01","success","medium",None,"10.0.6.21"),
+        _ev(14,12,31, "sharepoint_onedrive","sharing","jamie@contoso.com","AnonymousLinkCreated","site/legal","success","medium",None,"10.0.3.7"),
+        _ev(14,10, 9, "unified_audit_log","DLP","lee@contoso.com","DLPRuleMatch · Credit Card","mail/outbound","failure","high",None,"10.0.2.55"),
+        _ev(14, 8,44, "intune","device","—","compliance-check failed","win11-fleet","failure","medium",None,"10.0.9.1"),
+        _ev(14, 6,20, "teams","admin","soc-automation@contoso.com","ExternalAccessChanged","org/federation","success","medium",None,"10.0.1.5"),
+        _ev(14, 4,55, "entra","audit","jamie@contoso.com","Add app role assignment","sp/Graph","success","low",None,"10.0.4.18"),
+        _ev(14, 2,10, "secure_score","posture","—","SecureScoreSnapshot · −6 vs avg","tenant","failure","high",None,"—"),
+        _ev(14, 0,31, "service_health","incident","—","EX_Advisory · mail delays","Exchange Online","failure","medium",None,"—"),
+        _ev(13,58,12, "entra","signin","svc-sync@contoso.com","Sign-in","Microsoft Graph","success","low",None,"10.0.6.21"),
+        _ev(13,55,40, "intune","device","—","policy-sync","win11-fleet","success","low",None,"10.0.9.1"),
+        _ev(13,53, 2, "exchange_online","trace","lee@contoso.com","MessageTrace · quarantined","mail/inbound","failure","medium",None,"10.0.2.55"),
+        _ev(13,50,19, "defender_xdr","alert","host-db-01","Defender alert · LSASS access","host-db-01","failure","high",None,"10.0.6.21"),
+        _ev(13,47,55, "pim","role","soc-automation@contoso.com","Deactivate Security Reader","role/Sec Reader","success","low",None,"10.0.1.5"),
+        _ev(13,45,11, "sharepoint_onedrive","file","alex@contoso.com","FileDownloaded","site/finance","success","low",None,"10.0.3.9"),
+        _ev(13,42,38, "unified_audit_log","PowerBI","jamie@contoso.com","ExportReport","workspace/exec","success","low",None,"10.0.4.18"),
+        _ev(13,40, 2, "entra","signin","lee@contoso.com","Sign-in","Office 365","success","low",None,"10.0.2.55"),
+    ]
+
+
+def generate_mock_dataset(*, seed: int, count: int) -> tuple[list[NormalizedEvent], list[ProviderStatus]]:
+    now = datetime.now(tz=UTC)
+    design_events = _design_demo_events(now)
+
+    if count <= len(design_events):
+        events = design_events[:count]
+    else:
+        rng = random.Random(seed)
+        extra: list[NormalizedEvent] = []
+        needed = count - len(design_events)
+        for index in range(needed):
+            provider, service = PROVIDER_CATALOG[index % len(PROVIDER_CATALOG)]
+            action = rng.choice(ACTIONS[provider])
+            result = rng.choice(RESULTS)
+            severity = "critical" if result == "failure" and rng.random() > 0.55 else rng.choice(SEVERITIES)
+            actor = rng.choice(ACTORS)
+            target = rng.choice(TARGETS[provider])
+            timestamp = now - timedelta(minutes=rng.randint(0, 23 * 60), seconds=rng.randint(0, 59))
+            correlation_id = f"corr-{seed}-{index:03d}"
+            request_id = f"req-{seed}-{index:03d}"
+            raw = {
+                "ip": f"10.0.{rng.randint(1, 9)}.{rng.randint(10, 240)}",
+                "tenant_id": "contoso-tenant",
+                "actor": actor,
+                "target": target,
+                "provider": provider,
+                "service": service,
+                "action": action,
+                "result": result,
+                "severity": severity,
+                "risk_flags": [
+                    flag for flag in ("impossible-travel", "burst-failures", "admin-op")
+                    if rng.random() > 0.72
+                ],
+            }
+            extra.append(
+                NormalizedEvent(
+                    timestamp=timestamp,
+                    provider=provider,
+                    service=service,
+                    actor=actor,
+                    action=action,
+                    target=target,
+                    result=result,
+                    severity=severity,
+                    correlation_id=correlation_id,
+                    request_id=request_id,
+                    raw=raw,
+                )
+            )
+        events = design_events + extra
+
     events.sort(key=lambda item: item.timestamp, reverse=True)
+
+    # Build provider counts from the events
+    provider_counts: Counter[str] = Counter(e.provider for e in events)
+
     statuses = [
         ProviderStatus(
             provider=provider,
             service=service,
-            state="error" if provider == "defender" else "warn" if provider == "purview" else "ok",
-            lag_seconds=rng.randint(10, 180) if provider != "purview" else rng.randint(120, 420),
-            error_count=rng.randint(0, 2) if provider == "defender" else 0,
+            state=_PROVIDER_STATES.get(provider, "ok"),
+            lag_seconds=_PROVIDER_LAGS.get(provider, 30),
+            error_count=1 if _PROVIDER_STATES.get(provider) == "error" else 0,
             enabled=True,
             total_events=provider_counts[provider],
         )

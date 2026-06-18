@@ -26,13 +26,19 @@ src/terminalvelocity/observability/__init__.py
 src/terminalvelocity/observability/health.py
 src/terminalvelocity/observability/metrics.py
 src/terminalvelocity/providers/__init__.py
+src/terminalvelocity/providers/advanced_hunting.py
+src/terminalvelocity/providers/attack_simulation.py
 src/terminalvelocity/providers/base.py
 src/terminalvelocity/providers/defender_cloud_apps.py
 src/terminalvelocity/providers/defender_xdr.py
 src/terminalvelocity/providers/entra_id.py
 src/terminalvelocity/providers/exchange_online.py
+src/terminalvelocity/providers/identity_protection.py
 src/terminalvelocity/providers/intune.py
+src/terminalvelocity/providers/pim.py
 src/terminalvelocity/providers/registry.py
+src/terminalvelocity/providers/secure_score.py
+src/terminalvelocity/providers/service_health.py
 src/terminalvelocity/providers/sharepoint_onedrive.py
 src/terminalvelocity/providers/teams.py
 src/terminalvelocity/providers/unified_audit_log.py
@@ -58,6 +64,7 @@ src/terminalvelocity/tui/screens/saved_queries.py
 src/terminalvelocity/tui/screens/tag.py
 src/terminalvelocity/tui/screens/timeline.py
 src/terminalvelocity/tui/widgets/__init__.py
+src/terminalvelocity/tui/widgets/charts_strip.py
 src/terminalvelocity/tui/widgets/detail_panel.py
 src/terminalvelocity/tui/widgets/event_table.py
 src/terminalvelocity/tui/widgets/provider_panel.py

@@ -1,4 +1,4 @@
-"""Center event table."""
+"""Center event table with Target column."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ _HIGHLIGHT_STYLES: dict[str, str] = {
 
 
 class EventTable(Widget):
-    """Tabular event list with row-selection notifications and highlight rules support."""
+    """Tabular event list with highlight rules support and cross-provider correlation."""
 
     class EventHighlighted(Message):
         def __init__(self, event: NormalizedEvent | None) -> None:
@@ -47,21 +47,20 @@ class EventTable(Widget):
 
     def _rebuild_columns(self, table: DataTable) -> None:
         table.clear(columns=True)
-        table.add_column("Time", width=20)
-        table.add_column("Provider", width=16)
+        table.add_column("Time", width=19)
+        table.add_column("Provider", width=11)
         table.add_column("Actor", width=22)
-        table.add_column("Action", width=22)
+        table.add_column("Action", width=28)
+        table.add_column("Target", width=18)
         table.add_column("Result", width=10)
         table.add_column("Severity", width=10)
         if self._show_correlation:
             table.add_column("Corr.", width=7)
 
     def set_highlight_engine(self, engine) -> None:
-        """Attach a HighlightRuleEngine for per-row styling."""
         self._highlight_engine = engine
 
     def set_show_correlation(self, show: bool) -> None:
-        """Toggle the cross-provider correlation column."""
         self._show_correlation = show
 
     def set_events(self, events: list[NormalizedEvent]) -> None:
@@ -69,7 +68,6 @@ class EventTable(Widget):
         table = self.query_one(DataTable)
         self._rebuild_columns(table)
         for index, event in enumerate(self._events):
-            # Determine row highlight color from rules engine
             row_style: str | None = None
             if self._highlight_engine is not None:
                 matches = self._highlight_engine.evaluate(event)
@@ -83,6 +81,7 @@ class EventTable(Widget):
 
             actor_text = _styled(Text(event.actor or "—", overflow="ellipsis", no_wrap=True), row_style)
             action_text = _styled(Text(f"{event.service}:{event.action}", overflow="ellipsis", no_wrap=True), row_style)
+            target_text = _styled(Text(event.target or "—", overflow="ellipsis", no_wrap=True), row_style)
             time_text = _styled(Text(event.timestamp.strftime("%Y-%m-%d %H:%M:%S")), row_style)
 
             row_cells: list = [
@@ -90,12 +89,16 @@ class EventTable(Widget):
                 provider_badge(event.provider),
                 actor_text,
                 action_text,
+                target_text,
                 result_badge(event.result or "—"),
                 severity_badge(event.severity or "—"),
             ]
             if self._show_correlation:
                 related_count = getattr(event, "related_provider_count", 0) or 0
-                corr_text = Text(f"+{related_count}" if related_count else "—", style="#94a3b8" if not related_count else "#60a5fa")
+                corr_text = Text(
+                    f"+{related_count}" if related_count else "—",
+                    style="#94a3b8" if not related_count else "#60a5fa",
+                )
                 row_cells.append(corr_text)
 
             table.add_row(*row_cells, key=str(index))
@@ -142,7 +145,6 @@ class EventTable(Widget):
 
     @property
     def row_count(self) -> int:
-        """Number of rows currently displayed in the inner DataTable."""
         return self.query_one(DataTable).row_count
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:

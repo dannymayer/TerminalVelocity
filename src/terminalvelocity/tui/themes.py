@@ -58,8 +58,8 @@ Footer {
 }
 
 #provider-panel {
-    width: 34;
-    min-width: 28;
+    width: 38;
+    min-width: 32;
     padding: 0 1;
     border: round #334155;
     background: #111827;
@@ -87,15 +87,15 @@ Footer {
 }
 
 #detail-right {
-    width: 44;
+    width: 46;
     min-width: 40;
     margin-left: 1;
-    display: none;
 }
 
 #detail-bottom {
     height: 18;
     margin-top: 1;
+    display: none;
 }
 
 .deep-mode #detail-right {
@@ -103,6 +103,7 @@ Footer {
 }
 
 .deep-mode #detail-bottom {
+    display: block;
     height: 28;
 }
 
@@ -133,29 +134,97 @@ Footer {
 }
 """
 
-PROVIDER_COLORS = {
+PROVIDER_COLORS: dict[str, str] = {
     "entra": "white on #2563eb",
-    "defender": "black on #f59e0b",
+    "identity_protection": "white on #3b82f6",
+    "pim": "white on #6366f1",
+    "defender_xdr": "black on #f59e0b",
+    "advanced_hunting": "white on #f97316",
+    "defender_cloud_apps": "white on #fb923c",
     "intune": "black on #22c55e",
+    "unified_audit_log": "white on #7c3aed",
+    "exchange_online": "white on #8b5cf6",
+    "sharepoint_onedrive": "white on #a855f7",
+    "teams": "white on #6d28d9",
+    "secure_score": "black on #06b6d4",
+    "service_health": "black on #14b8a6",
+    "attack_simulation": "white on #ec4899",
+    # Legacy names kept for backward compatibility
+    "defender": "black on #f59e0b",
     "purview": "white on #7c3aed",
 }
 
-RESULT_COLORS = {
-    "success": "black on #22c55e",
-    "failure": "white on #dc2626",
+PROVIDER_SHORT: dict[str, str] = {
+    "entra": "ENTRA",
+    "identity_protection": "IDP",
+    "pim": "PIM",
+    "defender_xdr": "DEFENDER",
+    "advanced_hunting": "HUNT",
+    "defender_cloud_apps": "MCAS",
+    "intune": "INTUNE",
+    "unified_audit_log": "PURVIEW",
+    "exchange_online": "EXO",
+    "sharepoint_onedrive": "SPO",
+    "teams": "TEAMS",
+    "secure_score": "SCORE",
+    "service_health": "HEALTH",
+    "attack_simulation": "ATKSIM",
+    # Legacy
+    "defender": "DEFENDER",
+    "purview": "PURVIEW",
 }
 
-SEVERITY_COLORS = {
+PROVIDER_NAME: dict[str, str] = {
+    "entra": "Entra ID",
+    "identity_protection": "Identity Protection",
+    "pim": "Privileged Identity Mgmt",
+    "defender_xdr": "Defender XDR",
+    "advanced_hunting": "Advanced Hunting",
+    "defender_cloud_apps": "Defender Cloud Apps",
+    "intune": "Intune",
+    "unified_audit_log": "Purview · UAL",
+    "exchange_online": "Exchange Online",
+    "sharepoint_onedrive": "SharePoint / OneDrive",
+    "teams": "Microsoft Teams",
+    "secure_score": "Secure Score",
+    "service_health": "Service Health",
+    "attack_simulation": "Attack Simulation",
+    # Legacy
+    "defender": "Defender XDR",
+    "purview": "Purview · UAL",
+}
+
+PROVIDER_GROUPS: list[tuple[str, list[str]]] = [
+    ("IDENTITY & ACCESS", ["entra", "identity_protection", "pim"]),
+    ("THREAT & HUNTING", ["defender_xdr", "advanced_hunting", "defender_cloud_apps"]),
+    ("ENDPOINT", ["intune"]),
+    ("COLLABORATION", ["unified_audit_log", "exchange_online", "sharepoint_onedrive", "teams"]),
+    ("POSTURE & HEALTH", ["secure_score", "service_health", "attack_simulation"]),
+]
+
+RESULT_COLORS: dict[str, str] = {
+    "success": "black on #22c55e",
+    "failure": "white on #dc2626",
+    "atrisk": "white on #f97316",
+}
+
+SEVERITY_COLORS: dict[str, str] = {
     "low": "black on #86efac",
     "medium": "black on #facc15",
     "high": "white on #f97316",
     "critical": "white on #dc2626",
 }
 
-STATE_COLORS = {
+STATE_COLORS: dict[str, str] = {
     "ok": "black on #22c55e",
     "warn": "black on #facc15",
     "error": "white on #dc2626",
+}
+
+STATE_DOT_COLORS: dict[str, str] = {
+    "ok": "#22c55e",
+    "warn": "#facc15",
+    "error": "#dc2626",
 }
 
 
@@ -166,15 +235,18 @@ def _badge(text: str, style: str) -> Text:
 
 
 def provider_badge(provider: str) -> Text:
-    return _badge(provider.upper(), PROVIDER_COLORS.get(provider.lower(), "white on #475569"))
+    key = provider.lower()
+    short = PROVIDER_SHORT.get(key, provider.upper()[:8])
+    return _badge(short, PROVIDER_COLORS.get(key, "white on #475569"))
 
 
 def result_badge(result: str) -> Text:
-    return _badge(result.upper(), RESULT_COLORS.get(result.lower(), "white on #475569"))
+    key = (result or "").lower()
+    return _badge((result or "—").upper(), RESULT_COLORS.get(key, "white on #475569"))
 
 
 def severity_badge(severity: str) -> Text:
-    return _badge(severity.upper(), SEVERITY_COLORS.get(severity.lower(), "white on #475569"))
+    return _badge((severity or "—").upper(), SEVERITY_COLORS.get((severity or "").lower(), "white on #475569"))
 
 
 def state_badge(state: str) -> Text:
