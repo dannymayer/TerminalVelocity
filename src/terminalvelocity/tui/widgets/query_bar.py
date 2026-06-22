@@ -36,13 +36,13 @@ class QueryBar(Widget):
         yield Static("Ready", id="query-status")
 
     def on_input_changed(self, _: Input.Changed) -> None:
-        self.post_message(self.FilterChanged(self.query, self.scope))
+        self.post_message(self.FilterChanged(self.query_text, self.scope))
 
     def on_select_changed(self, _: Select.Changed) -> None:
-        self.post_message(self.FilterChanged(self.query, self.scope))
+        self.post_message(self.FilterChanged(self.query_text, self.scope))
 
     @property
-    def query(self) -> str:
+    def query_text(self) -> str:
         return self.query_one("#query-input", Input).value.strip()
 
     @property

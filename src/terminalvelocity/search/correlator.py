@@ -43,7 +43,7 @@ class EventCorrelator:
     @staticmethod
     def _is_related(seed: NormalizedEvent, event: NormalizedEvent) -> bool:
         correlation_keys = {value for value in (seed.correlation_id, seed.request_id) if value}
-        return (
+        return bool(
             bool(correlation_keys.intersection({event.correlation_id, event.request_id}))
             or (seed.actor and event.actor and seed.actor.casefold() == event.actor.casefold())
             or (seed.target and event.target and seed.target.casefold() == event.target.casefold())

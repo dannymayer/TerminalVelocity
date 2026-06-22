@@ -5,7 +5,7 @@ import io
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from terminalvelocity.models import NormalizedEvent
 
@@ -64,7 +64,7 @@ class EventExporter:
         return "\n".join(lines)
 
     def write(
-        self, events: Iterable[NormalizedEvent], destination: str | Path, *, format: ExportFormat, **kwargs: object
+        self, events: Iterable[NormalizedEvent], destination: str | Path, *, format: ExportFormat, **kwargs: Any
     ) -> Path:
         """Write exported events to disk and return the destination path."""
 
@@ -73,7 +73,7 @@ class EventExporter:
         destination_path.write_text(content, encoding="utf-8")
         return destination_path
 
-    def _render(self, events: Iterable[NormalizedEvent], *, format: ExportFormat, **kwargs: object) -> str:
+    def _render(self, events: Iterable[NormalizedEvent], *, format: ExportFormat, **kwargs: Any) -> str:
         if format == "json":
             return self.export_json(events, **kwargs)
         if format == "csv":

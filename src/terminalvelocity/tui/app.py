@@ -429,7 +429,7 @@ class TerminalVelocityApp(App[None]):
 
     def refresh_view(self) -> None:
         query_bar = self.query_one(QueryBar)
-        query_text = query_bar.query
+        query_text = query_bar.query_text
         scope = query_bar.scope
 
         self.filtered_events = self._search(query_text, scope)

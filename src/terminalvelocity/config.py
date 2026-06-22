@@ -106,7 +106,7 @@ class AppConfig(BaseModel):
                 env_tenant = TenantConfig(
                     tenant_id=env_tenant_id,
                     client_id=env_client_id,
-                    client_secret=env_client_secret,
+                    client_secret=SecretStr(env_client_secret),
                 )
                 cfg = cfg.model_copy(update={"tenants": [*cfg.tenants, env_tenant]})
 

@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Iterable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, overload
 
 import httpx
 from tenacity import (
@@ -247,7 +247,7 @@ class JSONAPIClient:
             raise
 
     def iter_collection(self, path: str, *, params: Mapping[str, Any] | None = None) -> Iterator[dict[str, Any]]:
-        next_path = path
+        next_path: str | None = path
         next_params = dict(params or {})
         while next_path:
             payload = self.get(next_path, params=next_params)
@@ -326,6 +326,22 @@ class BaseProvider(ABC):
         self.raw_cache_path = Path(raw_cache_path) if raw_cache_path else None
         self._checkpoint = checkpoint_state or ProviderCheckpoint(provider=self.provider_name)
         self._last_fetch_count = 0
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: datetime) -> datetime: ...
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: str) -> datetime: ...
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: None) -> None: ...
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: datetime | str | None) -> datetime | None: ...
 
     @staticmethod
     def ensure_utc(value: datetime | str | None) -> datetime | None:

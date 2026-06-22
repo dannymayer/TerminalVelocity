@@ -46,7 +46,10 @@ class SavedQueryStore:
             (name, text, description, now, now),
         )
         self.connection.commit()
-        return self.get(name)
+        result = self.get(name)
+        if result is None:
+            raise RuntimeError(f"Failed to retrieve saved query '{name}' after saving")
+        return result
 
     def get(self, name: str) -> SavedQuery | None:
         row = self.connection.execute(
