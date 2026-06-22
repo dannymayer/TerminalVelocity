@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Mapping
+from typing import Any
 
-from terminalvelocity.providers.base import BaseProviderAdapter, ProviderCheckpoint, isoformat_z, join_display_names, map_result
+from terminalvelocity.providers.base import (
+    BaseProviderAdapter,
+    ProviderCheckpoint,
+    isoformat_z,
+    join_display_names,
+    map_result,
+)
 from terminalvelocity.schema import NormalizedEvent
 
 
@@ -11,7 +18,7 @@ class EntraIdProvider(BaseProviderAdapter):
     provider_name = "entra_id"
     provider_scope = "https://graph.microsoft.com/.default"
     connection_test_url = "https://graph.microsoft.com/v1.0/auditLogs/signIns"
-    connection_test_params = {"$top": 1}
+    connection_test_params = {"$top": 1}  # noqa: RUF012
 
     async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)
@@ -81,7 +88,7 @@ class EntraIdProvider(BaseProviderAdapter):
             )
             source_system = (payload.get("sourceSystem") or {}).get("displayName") or ""
             target_system = (payload.get("targetSystem") or {}).get("displayName") or ""
-            service_label = f"Microsoft Entra ID Provisioning"
+            service_label = "Microsoft Entra ID Provisioning"
             if source_system or target_system:
                 service_label = f"Microsoft Entra ID Provisioning ({source_system} → {target_system})"
             status_info = payload.get("statusInfo") or {}

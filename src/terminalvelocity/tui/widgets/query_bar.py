@@ -5,8 +5,8 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.message import Message
-from textual.widgets import Input, Select, Static
 from textual.widget import Widget
+from textual.widgets import Input, Select, Static
 
 TIME_SCOPE_OPTIONS = [
     ("All time", "all"),

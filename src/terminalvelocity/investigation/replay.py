@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from uuid import uuid4
 
 from terminalvelocity.models import NormalizedEvent
@@ -46,7 +47,7 @@ class IngestionSession:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> 'IngestionSession':
+    def from_dict(cls, payload: dict[str, Any]) -> IngestionSession:
         """Reconstruct a session from serialized data."""
 
         return cls(

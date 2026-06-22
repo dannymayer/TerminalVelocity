@@ -8,11 +8,11 @@ from rich.syntax import Syntax
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
-from textual.widgets import Static, TabbedContent, TabPane
 from textual.widget import Widget
+from textual.widgets import Static, TabbedContent, TabPane
 
 from terminalvelocity.schema import NormalizedEvent
-from terminalvelocity.tui.themes import PROVIDER_COLORS, PROVIDER_SHORT, severity_badge
+from terminalvelocity.tui.themes import PROVIDER_COLORS, PROVIDER_SHORT
 
 
 class DetailPanel(Widget):
@@ -79,7 +79,7 @@ class DetailPanel(Widget):
             return content
 
         content = Text()
-        content.append(f"Correlation: ", style="#64748b")
+        content.append("Correlation: ", style="#64748b")
         content.append(f"{event.correlation_id}", style="bold #93c5fd")
         content.append(f"  {len(chain)} linked\n\n", style="#64748b")
 

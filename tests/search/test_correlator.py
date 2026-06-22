@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from terminalvelocity.models import NormalizedEvent
 from terminalvelocity.search.correlator import EventCorrelator
@@ -9,7 +9,7 @@ from terminalvelocity.search.correlator import EventCorrelator
 
 class CorrelatorTests(unittest.TestCase):
     def setUp(self) -> None:
-        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=UTC)
         self.events = [
             NormalizedEvent(timestamp=now - timedelta(minutes=4), provider="defender", service="identity", actor="user@contoso.com", action="SignIn", target="device-1", result="failure", correlation_id="corr-1", raw={"step": 1}),
             NormalizedEvent(timestamp=now - timedelta(minutes=3), provider="defender", service="identity", actor="user@contoso.com", action="MFAChallenge", target="device-1", result="success", correlation_id="corr-1", raw={"step": 2}),

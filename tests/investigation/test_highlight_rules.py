@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from terminalvelocity.investigation.highlight_rules import HighlightRuleEngine
@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 class HighlightRuleEngineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.event = NormalizedEvent(
-            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
             provider='defender',
             service='identity',
             actor='admin@contoso.com',

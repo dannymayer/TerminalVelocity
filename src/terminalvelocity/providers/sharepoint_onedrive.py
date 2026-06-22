@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import Any
 
 from terminalvelocity.enrichment.schema_mapper import SchemaMapper, extract_first

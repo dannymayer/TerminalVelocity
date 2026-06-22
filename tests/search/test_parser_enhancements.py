@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from terminalvelocity.search.parser import parse_query, QuerySyntaxError
+from terminalvelocity.search.parser import parse_query
 
 
 class ParserTagTests(unittest.TestCase):

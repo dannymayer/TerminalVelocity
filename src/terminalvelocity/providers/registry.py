@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any
 
 from terminalvelocity.providers.advanced_hunting import AdvancedHuntingProvider
 from terminalvelocity.providers.attack_simulation import AttackSimulationProvider
@@ -18,7 +18,7 @@ from terminalvelocity.providers.sharepoint_onedrive import SharePointOneDrivePro
 from terminalvelocity.providers.teams import TeamsProvider
 from terminalvelocity.providers.unified_audit_log import UnifiedAuditLogProvider
 
-ProviderType = Type[ProviderAdapter]
+ProviderType = type[ProviderAdapter]
 
 
 class ProviderRegistry:

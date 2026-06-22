@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 
 class TenantConfig(BaseModel):
@@ -15,11 +15,9 @@ class TenantConfig(BaseModel):
 
     tenant_id: str
     client_id: str
-    # TODO(security): client_secret is stored as a plain str. Replace with
-    # pydantic.SecretStr so the value is masked in repr/logs and never
-    # serialised accidentally.  Callers would then access it via
-    # .get_secret_value().  Reference: https://docs.pydantic.dev/latest/concepts/types/#secret-types
-    client_secret: str
+    # SecretStr masks the value in repr/logs and prevents accidental serialisation.
+    # Access the raw value via .get_secret_value() when passing to API clients.
+    client_secret: SecretStr
     display_name: str | None = None
 
 
@@ -65,13 +63,13 @@ class AppConfig(BaseModel):
     log_level: str = "WARNING"
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "AppConfig":
+    def from_yaml(cls, path: str | Path) -> AppConfig:
         """Load configuration from a YAML file."""
         data: dict[str, Any] = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         return cls.model_validate(data)
 
     @classmethod
-    def load_or_default(cls, path: str | Path | None = None) -> "AppConfig":
+    def load_or_default(cls, path: str | Path | None = None) -> AppConfig:
         """Load from *path*, then search default locations, or return defaults.
 
         Tenant credentials can be provided via environment variables:

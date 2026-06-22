@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from terminalvelocity.models import NormalizedEvent
 from terminalvelocity.search.engine import SearchEngine
@@ -10,7 +10,7 @@ from terminalvelocity.search.engine import SearchEngine
 class SearchEngineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = SearchEngine()
-        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=UTC)
         self.events = [
             NormalizedEvent(timestamp=now - timedelta(minutes=10), provider="defender", service="identity", actor="user@contoso.com", action="PasswordReset", result="failure", severity="high", target="account-1", correlation_id="corr-1", raw={"message": "password reset failed for user"}),
             NormalizedEvent(timestamp=now - timedelta(minutes=8), provider="entra", service="identity", actor="admin@contoso.com", action="GrantRole", result="success", severity="critical", target="Global Administrator", raw={"message": "global admin granted"}),

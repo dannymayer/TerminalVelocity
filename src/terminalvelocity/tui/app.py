@@ -9,11 +9,10 @@ import logging
 import os
 import random
 from collections import Counter
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
-from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
@@ -76,7 +75,7 @@ ACTIONS = {
     "exchange_online": ["New-InboxRule · forward to external", "MessageTrace · quarantined", "MessageTrace"],
     "sharepoint_onedrive": ["AnonymousLinkCreated", "FileDownloaded", "FileViewed", "SitePermissionModified"],
     "teams": ["ExternalAccessChanged", "MessageSent", "admin-policy-change"],
-    "secure_score": ["SecureScoreSnapshot · −6 vs avg", "ControlProfileSync"],
+    "secure_score": ["SecureScoreSnapshot · -6 vs avg", "ControlProfileSync"],
     "service_health": ["EX_Advisory · mail delays", "SPO_Incident · degraded performance"],
     "attack_simulation": ["CredentialsEntered", "SimulationLaunched", "ReportedPhish"],
 }
@@ -150,7 +149,7 @@ _STORAGE_DIR = Path(".terminalvelocity")
 class HelpScreen(ModalScreen[None]):
     """Simple help modal opened with ?."""
 
-    BINDINGS = [("escape", "close", "Close"), ("enter", "close", "Close"), ("question_mark", "close", "Close")]
+    BINDINGS = [("escape", "close", "Close"), ("enter", "close", "Close"), ("question_mark", "close", "Close")]  # noqa: RUF012
 
     def compose(self) -> ComposeResult:
         yield Static(HELP_TEXT, id="help-dialog")
@@ -208,11 +207,8 @@ class TerminalVelocityApp(App[None]):
         if Path(rules_path).exists():
             try:
                 self._highlight_engine = HighlightRuleEngine.from_path(rules_path)
-            except Exception:
-                # TODO(reliability): log the parse failure at WARNING level
-                # instead of silently discarding it.  Operators need visibility
-                # when their custom alert rules fail to load.
-                pass
+            except Exception as exc:
+                LOGGER.warning("Failed to load highlight rules from %s: %s", rules_path, exc)
 
         self._input_events = input_events or []
 
@@ -245,14 +241,10 @@ class TerminalVelocityApp(App[None]):
             self.sub_title = "File ingestion mode"
             self.events = self._input_events
         elif self.live:
-            self.sub_title = "Live – connecting to M365 providers…"
+            self.sub_title = "Live \u2013 connecting to M365 providers\u2026"
             self.events = []
             self.set_interval(self.config.poll_interval_seconds, self._poll_providers)
-            # TODO(deprecation): asyncio.ensure_future() is deprecated in
-            # Python 3.10+ in favour of asyncio.create_task().  Switch to
-            # asyncio.get_event_loop().create_task() or asyncio.create_task()
-            # once the minimum Python version is confirmed to be ≥ 3.10.
-            asyncio.ensure_future(self._poll_providers())
+            self._initial_poll_task = asyncio.create_task(self._poll_providers())
         else:
             self.sub_title = "Demo mode"
             self.events, self.provider_statuses = generate_mock_dataset(seed=self.seed, count=self.count)
@@ -306,6 +298,12 @@ class TerminalVelocityApp(App[None]):
         if new_count:
             self.notify(f"Ingested {new_count} new event(s)")
             self.refresh_view()
+
+    def on_unmount(self) -> None:
+        """Close all database connections when the application exits."""
+        self.engine.close()
+        self.saved_queries.close()
+        self.query_history.close()
 
     def action_focus_query(self) -> None:
         self.query_one(QueryBar).focus_query()
@@ -621,7 +619,7 @@ def _design_demo_events(now: datetime) -> list[NormalizedEvent]:
         _ev(14, 8,44, "intune","device","—","compliance-check failed","win11-fleet","failure","medium",None,"10.0.9.1"),
         _ev(14, 6,20, "teams","admin","soc-automation@contoso.com","ExternalAccessChanged","org/federation","success","medium",None,"10.0.1.5"),
         _ev(14, 4,55, "entra","audit","jamie@contoso.com","Add app role assignment","sp/Graph","success","low",None,"10.0.4.18"),
-        _ev(14, 2,10, "secure_score","posture","—","SecureScoreSnapshot · −6 vs avg","tenant","failure","high",None,"—"),
+        _ev(14, 2,10, "secure_score","posture","—","SecureScoreSnapshot · -6 vs avg","tenant","failure","high",None,"—"),
         _ev(14, 0,31, "service_health","incident","—","EX_Advisory · mail delays","Exchange Online","failure","medium",None,"—"),
         _ev(13,58,12, "entra","signin","svc-sync@contoso.com","Sign-in","Microsoft Graph","success","low",None,"10.0.6.21"),
         _ev(13,55,40, "intune","device","—","policy-sync","win11-fleet","success","low",None,"10.0.9.1"),

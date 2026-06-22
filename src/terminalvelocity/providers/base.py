@@ -1,4 +1,23 @@
-"""Shared provider interfaces and lightweight HTTP clients for M365 ingestion."""
+"""Shared provider interfaces and lightweight HTTP clients for M365 ingestion.
+
+This module defines **two** distinct provider base classes that serve different roles:
+
+* :class:`BaseProvider` — **synchronous** polling adapter used by providers that rely on
+  the Microsoft Purview Unified Audit Log query API (phase-3 providers).  It uses
+  :class:`GraphAPIClient` (synchronous ``httpx``) and ``time.sleep()`` for poll-wait
+  loops.  Subclass this when writing a new provider that calls
+  ``/security/auditLog/queries``.
+
+* :class:`BaseProviderAdapter` — **asynchronous** adapter for providers that call the
+  Graph API directly via ``httpx.AsyncClient`` (phase-2 providers).  It handles token
+  acquisition, retry logic via ``tenacity``, checkpointing, and optional raw-log caching.
+  Subclass this when writing a new provider that needs async HTTP and built-in retry.
+
+Both share the abstract :class:`ProviderAdapter` interface (``connect`` / ``fetch`` /
+``normalize`` / ``checkpoint``), but their signatures differ slightly to accommodate sync
+vs. async calling conventions.  Choose the right base for your provider based on whether
+the upstream API requires the polling pattern (sync) or direct streaming (async).
+"""
 
 from __future__ import annotations
 
@@ -6,13 +25,21 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import AsyncIterator, Iterable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
-from tenacity import AsyncRetrying, before_sleep_log, retry, retry_if_exception, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    AsyncRetrying,
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from terminalvelocity.schema import NormalizedEvent, ProviderCheckpoint
 
@@ -137,7 +164,7 @@ class JSONAPIClient:
 
     def _build_url(self, path: str, params: Mapping[str, Any] | None = None) -> str:
         from urllib import parse
-        if path.startswith("http://") or path.startswith("https://"):
+        if path.startswith(("http://", "https://")):
             url = path
         else:
             url = f"{self.base_url}/{path.lstrip('/')}"
@@ -169,7 +196,8 @@ class JSONAPIClient:
         reraise=True,
     )
     def _request(self, method: str, path: str, *, params: Mapping[str, Any] | None = None, body: Any | None = None) -> Any:
-        from urllib import error as urllib_error, request as urllib_request
+        from urllib import error as urllib_error
+        from urllib import request as urllib_request
         url = self._build_url(path, params)
         payload: bytes | None = None
         headers = dict(self.headers)
@@ -232,7 +260,7 @@ class GraphAPIClient(JSONAPIClient):
         super().__init__(
             base_url=base_url,
             headers={
-                "Authorization": f"******",
+                "Authorization": "******",
                 "Accept": "application/json",
                 "User-Agent": "terminalvelocity/0.1.0",
             },
@@ -259,15 +287,17 @@ class MCASClient(JSONAPIClient):
 # Synchronous base provider (used by phase-3 providers)
 # ---------------------------------------------------------------------------
 
-# TODO(naming): the codebase has two abstract provider base classes:
-#   - BaseProvider (sync, used by phase-3 providers below)
-#   - BaseProviderAdapter (async, used by phase-2 providers further down)
-# The similar names are confusing.  Consider renaming to SyncBaseProvider /
-# AsyncBaseProvider (or SyncProviderAdapter / AsyncProviderAdapter) and
-# documenting the distinction in a top-level docstring so contributors
-# choose the right base class.
 class BaseProvider(ABC):
-    """Common provider contract for time-window polling adapters."""
+    """Synchronous provider base for time-window polling adapters (phase-3).
+
+    Subclass this when your provider targets the Microsoft Purview Unified Audit Log
+    query API (``/security/auditLog/queries``).  The polling loop uses ``time.sleep()``
+    intentionally because it runs in a thread-pool executor, not directly on the asyncio
+    event loop.
+
+    For providers that call other Graph API endpoints asynchronously, use
+    :class:`BaseProviderAdapter` instead.
+    """
 
     provider_name = "provider"
     service_name = "service"
@@ -386,12 +416,10 @@ class AuditLogQueryProvider(BaseProvider):
 
     def _poll_audit_query(self, query_id: str) -> dict[str, Any]:
         deadline = time.monotonic() + self.query_timeout.total_seconds()
-        last_payload: dict[str, Any] = {}
         while time.monotonic() <= deadline:
             payload = self.graph_client.get(f"{self.audit_query_path}/{query_id}")
             if not isinstance(payload, dict):
                 raise ProviderFetchError(f"{self.provider_name} audit query {query_id} returned an invalid payload")
-            last_payload = payload
             status = str(payload.get("status", "unknown")).strip().lower()
             if status in TERMINAL_QUERY_STATUSES:
                 return payload
@@ -593,9 +621,9 @@ class BaseProviderAdapter(ProviderAdapter):
             before_sleep=before_sleep_log(LOGGER, logging.WARNING),
         ):
             with attempt:
-                token = await self._get_access_token(scope)
+                await self._get_access_token(scope)
                 request_headers = {
-                    "Authorization": f"******",
+                    "Authorization": "******",
                     "Accept": "application/json",
                     "User-Agent": "TerminalVelocity/0.1.0",
                 }

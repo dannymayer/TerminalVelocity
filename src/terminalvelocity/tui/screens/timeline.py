@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Static
-from rich.text import Text
 
 from terminalvelocity.investigation.timeline import TimelineBuilder
 from terminalvelocity.schema import NormalizedEvent
@@ -16,7 +16,7 @@ from terminalvelocity.tui.themes import provider_badge, result_badge, severity_b
 class TimelineScreen(ModalScreen[None]):
     """Modal showing a cross-provider chronological timeline for the selected event's actor."""
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("j,down", "cursor_down", "Next", show=False),
         Binding("k,up", "cursor_up", "Prev", show=False),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from terminalvelocity.investigation.replay import SessionRecorder, SessionReplayer
@@ -14,7 +14,7 @@ class SessionReplayTests(unittest.TestCase):
     def setUp(self) -> None:
         self.recorder = SessionRecorder()
         self.replayer = SessionReplayer()
-        self.started_at = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        self.started_at = datetime(2025, 1, 1, 12, 0, tzinfo=UTC)
         self.session = self.recorder.start_session(session_id='session-1', started_at=self.started_at, metadata={'provider': 'entra'})
         self.first = NormalizedEvent(timestamp=self.started_at, provider='entra', service='identity', actor='user@contoso.com', action='SignIn', target='device-1', result='failure', raw={'step': 1})
         self.second = NormalizedEvent(timestamp=self.started_at + timedelta(seconds=10), provider='entra', service='identity', actor='user@contoso.com', action='MFAChallenge', target='device-1', result='success', raw={'step': 2})

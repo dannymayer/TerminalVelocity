@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, Sequence
 
 from terminalvelocity.models import NormalizedEvent
 from terminalvelocity.search.filters import resolve_time_range
@@ -51,30 +51,27 @@ class SearchEngine:
         self.connection.commit()
 
     def close(self) -> None:
-        # TODO(resource-management): implement __enter__/__exit__ so
-        # SearchEngine can be used as a context manager and its connection is
-        # reliably closed even when callers raise exceptions.  The bare .close()
-        # method is never called in the main application path today.
         self.connection.close()
 
+    def __enter__(self) -> SearchEngine:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
     def index_events(self, events: Iterable[NormalizedEvent]) -> int:
-        # TODO(reliability): wrap the entire batch in a single BEGIN/COMMIT
-        # transaction so a mid-batch failure does not leave partial data
-        # committed.  Currently each event is written individually; the final
-        # commit() only issues a single COMMIT but individual INSERTs still
-        # autocommit in WAL mode if an exception is raised between them.
-        indexed_at = datetime.now(timezone.utc).isoformat()
+        indexed_at = datetime.now(UTC).isoformat()
         count = 0
-        for event in events:
-            event_id = event.stable_id()
-            self.connection.execute("DELETE FROM events_fts WHERE event_id = ?", (event_id,))
-            self.connection.execute(
-                "INSERT OR REPLACE INTO events (event_id, timestamp, provider, service, tenant_id, actor, action, target, result, severity, correlation_id, request_id, raw_json, indexed_at, archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
-                (event_id, event.timestamp.isoformat(), event.provider, event.service, event.tenant_id, event.actor, event.action, event.target, event.result, event.severity, event.correlation_id, event.request_id, event.raw_json(), indexed_at),
-            )
-            self.connection.execute("INSERT INTO events_fts(event_id, search_text) VALUES (?, ?)", (event_id, self._build_search_text(event)))
-            count += 1
-        self.connection.commit()
+        with self.connection:
+            for event in events:
+                event_id = event.stable_id()
+                self.connection.execute("DELETE FROM events_fts WHERE event_id = ?", (event_id,))
+                self.connection.execute(
+                    "INSERT OR REPLACE INTO events (event_id, timestamp, provider, service, tenant_id, actor, action, target, result, severity, correlation_id, request_id, raw_json, indexed_at, archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
+                    (event_id, event.timestamp.isoformat(), event.provider, event.service, event.tenant_id, event.actor, event.action, event.target, event.result, event.severity, event.correlation_id, event.request_id, event.raw_json(), indexed_at),
+                )
+                self.connection.execute("INSERT INTO events_fts(event_id, search_text) VALUES (?, ?)", (event_id, self._build_search_text(event)))
+                count += 1
         return count
 
     def delete_events(self, event_ids: Iterable[str]) -> None:
@@ -88,7 +85,7 @@ class SearchEngine:
 
     def archive_old_events(self, cutoff_hours: int = 168) -> int:
         """Mark events older than *cutoff_hours* as archived. Returns the count archived."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=cutoff_hours)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(hours=cutoff_hours)).isoformat()
         cursor = self.connection.execute(
             "UPDATE events SET archived = 1 WHERE archived = 0 AND timestamp < ?",
             (cutoff,),
@@ -98,7 +95,7 @@ class SearchEngine:
 
     def tag_event(self, event_id: str, tag: str) -> None:
         """Attach a tag label to an event."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.connection.execute(
             "INSERT OR IGNORE INTO event_tags(event_id, tag, created_at) VALUES (?, ?, ?)",
             (event_id, tag.lower().strip(), now),
@@ -141,7 +138,7 @@ class SearchEngine:
         if query.tags:
             for tag in query.tags:
                 base += " JOIN event_tags t{i} ON e.event_id = t{i}.event_id".format(i=len(params))
-                where.append("t{i}.tag = ?".format(i=len(params)))
+                where.append(f"t{len(params)}.tag = ?")
                 params.append(tag.lower().strip())
         if not show_archived:
             where.append("e.archived = 0")

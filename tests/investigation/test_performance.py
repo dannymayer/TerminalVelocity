@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from terminalvelocity.investigation.performance import LRUResultCache, batched_events, deduplicate_events, paginate_sequence
+from terminalvelocity.investigation.performance import (
+    LRUResultCache,
+    batched_events,
+    deduplicate_events,
+    paginate_sequence,
+)
 from terminalvelocity.models import NormalizedEvent
 
 
@@ -23,7 +28,7 @@ class PerformanceHelpersTests(unittest.TestCase):
         self.assertTrue(page.has_next)
         self.assertTrue(page.has_previous)
 
-        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=UTC)
         events = [
             NormalizedEvent(timestamp=now + timedelta(minutes=index), provider='entra', service='identity', actor='user@contoso.com', action=f'Action{index}', target='device-1', result='success', raw={'step': index})
             for index in range(3)
@@ -32,7 +37,7 @@ class PerformanceHelpersTests(unittest.TestCase):
         self.assertEqual([len(batch) for batch in batches], [2, 1])
 
     def test_deduplicates_large_result_sets(self) -> None:
-        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=UTC)
         event = NormalizedEvent(timestamp=now, provider='entra', service='identity', actor='user@contoso.com', action='SignIn', target='device-1', result='success', raw={'step': 1})
         deduplicated = deduplicate_events([event, event])
         self.assertEqual(len(deduplicated), 1)

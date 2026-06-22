@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from terminalvelocity.providers.base import BaseProviderAdapter, ProviderCheckpoint, isoformat_z, map_result
 from terminalvelocity.schema import NormalizedEvent

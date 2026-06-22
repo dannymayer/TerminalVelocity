@@ -5,8 +5,8 @@ from __future__ import annotations
 from rich.console import Group as RichGroup
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.widgets import Static
 from textual.widget import Widget
+from textual.widgets import Static
 
 from terminalvelocity.schema import ProviderStatus
 from terminalvelocity.tui.themes import (
@@ -15,7 +15,6 @@ from terminalvelocity.tui.themes import (
     PROVIDER_NAME,
     PROVIDER_SHORT,
     STATE_DOT_COLORS,
-    provider_badge,
 )
 
 
@@ -46,7 +45,6 @@ class ProviderPanel(Widget):
                 status = status_map.get(prov)
                 state = status.state if status else "ok"
                 lag_s = status.lag_seconds if status else 0
-                err = status.error_count if status else 0
                 count = filtered_counts.get(prov, 0)
 
                 dot_color = STATE_DOT_COLORS.get(state, "#475569")

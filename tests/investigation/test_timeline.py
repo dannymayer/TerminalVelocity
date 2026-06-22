@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from terminalvelocity.investigation.timeline import TimelineBuilder
 from terminalvelocity.models import NormalizedEvent
@@ -9,7 +9,7 @@ from terminalvelocity.models import NormalizedEvent
 
 class TimelineBuilderTests(unittest.TestCase):
     def setUp(self) -> None:
-        now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc)
+        now = datetime(2025, 1, 1, 12, 0, tzinfo=UTC)
         self.events = [
             NormalizedEvent(timestamp=now, provider='entra', service='identity', actor='user@contoso.com', action='SignIn', target='device-1', result='failure', correlation_id='corr-1', raw={'step': 1}),
             NormalizedEvent(timestamp=now + timedelta(minutes=2), provider='entra', service='identity', actor='user@contoso.com', action='TokenIssued', target='device-1', result='success', request_id='req-1', raw={'step': 2}),

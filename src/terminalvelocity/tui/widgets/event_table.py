@@ -5,8 +5,8 @@ from __future__ import annotations
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.widgets import DataTable
 from textual.widget import Widget
+from textual.widgets import DataTable
 
 from terminalvelocity.schema import NormalizedEvent
 from terminalvelocity.tui.themes import provider_badge, result_badge, severity_badge

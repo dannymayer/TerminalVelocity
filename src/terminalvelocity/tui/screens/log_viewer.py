@@ -18,7 +18,7 @@ class LogViewerScreen(ModalScreen[None]):
     they could be read from the TUI notifications.
     """
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("ctrl+r", "refresh_log", "Refresh"),
         Binding("ctrl+c", "clear_log", "Clear log"),
@@ -86,13 +86,13 @@ class LogViewerScreen(ModalScreen[None]):
         if self._log_file is None or not self._log_file.exists():
             label = self._log_path_label()
             title_widget.update(f"Application Log — {label}")
-            log_widget.write("[dim]No log entries yet.[/dim]" if self._log_file else f"[dim]Log file not configured. Pass --log-file or set log_file in config.[/dim]")
+            log_widget.write("[dim]No log entries yet.[/dim]" if self._log_file else "[dim]Log file not configured. Pass --log-file or set log_file in config.[/dim]")
             return
 
         try:
             lines = self._log_file.read_text(encoding="utf-8", errors="replace").splitlines()
         except OSError as exc:
-            title_widget.update(f"Application Log — error reading file")
+            title_widget.update("Application Log — error reading file")
             log_widget.write(f"[red]Could not read log file:[/red] {exc}")
             return
 

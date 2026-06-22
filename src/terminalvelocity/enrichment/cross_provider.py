@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Iterable
 
 from terminalvelocity.schema import NormalizedEvent
 

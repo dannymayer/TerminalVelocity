@@ -54,20 +54,20 @@ class HighlightRuleEngine:
         self.rules = list(rules)
 
     @classmethod
-    def from_yaml(cls, payload: str) -> 'HighlightRuleEngine':
+    def from_yaml(cls, payload: str) -> HighlightRuleEngine:
         """Create a rule engine from a YAML string."""
 
         data = yaml.safe_load(payload) or {}
         return cls._from_mapping(data)
 
     @classmethod
-    def from_path(cls, path: str | Path) -> 'HighlightRuleEngine':
+    def from_path(cls, path: str | Path) -> HighlightRuleEngine:
         """Create a rule engine from a YAML file on disk."""
 
         return cls.from_yaml(Path(path).read_text(encoding='utf-8'))
 
     @classmethod
-    def _from_mapping(cls, data: Mapping[str, Any]) -> 'HighlightRuleEngine':
+    def _from_mapping(cls, data: Mapping[str, Any]) -> HighlightRuleEngine:
         rules = [HighlightRule.model_validate(item) for item in data.get('rules', [])]
         return cls(rules)
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Input, Label, Static
-from textual.containers import Horizontal, Vertical
 
 from terminalvelocity.schema import NormalizedEvent
 from terminalvelocity.search.engine import SearchEngine
@@ -15,7 +15,7 @@ from terminalvelocity.search.engine import SearchEngine
 class TagScreen(ModalScreen[None]):
     """Modal for viewing and editing tags on the currently selected event."""
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("enter", "apply_tag", "Apply"),
     ]
@@ -93,7 +93,8 @@ class TagScreen(ModalScreen[None]):
             if tag:
                 self._engine.untag_event(self._event_id, tag)
         else:
-            tag = raw.lstrip("add:").strip()
+            # Strip optional "add:" prefix
+            tag = raw[len("add:"):].strip() if raw.startswith("add:") else raw.strip()
             if tag:
                 self._engine.tag_event(self._event_id, tag)
         self.query_one("#tag-input", Input).value = ""

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Mapping
+from typing import Any
 
 from terminalvelocity.providers.base import BaseProviderAdapter, ProviderCheckpoint, isoformat_z, map_result
 from terminalvelocity.schema import NormalizedEvent
-
 
 _PIM_STATUS_MAP: dict[str, str] = {
     "granted": "success",
@@ -35,7 +35,7 @@ class PIMProvider(BaseProviderAdapter):
     provider_name = "pim"
     provider_scope = "https://graph.microsoft.com/.default"
     connection_test_url = "https://graph.microsoft.com/v1.0/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests"
-    connection_test_params = {"$top": 1}
+    connection_test_params = {"$top": 1}  # noqa: RUF012
 
     async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)

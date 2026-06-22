@@ -68,11 +68,9 @@ def test_demo_mode_used_when_credentials_absent() -> None:
 def test_live_mode_used_when_credentials_present() -> None:
     """App calls _poll_providers when live=True and credentials are set."""
     import os
-    from unittest.mock import AsyncMock, patch
 
     async def run() -> None:
-        live_events = generate_mock_events(count=5, seed=99)
-        from terminalvelocity.schema import ProviderStatus
+        generate_mock_events(count=5, seed=99)
         app = TerminalVelocityApp(seed=1, count=10, live=True)
         env_vars = {
             "TERMINALVELOCITY_TENANT_ID": "test-tenant",
@@ -105,7 +103,7 @@ def test_partial_credentials_fall_back_to_demo() -> None:
 def test_main_auto_enables_live_when_env_creds_present() -> None:
     """main() auto-enables live mode when all three env credentials are set."""
     import os
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import MagicMock
 
     env_vars = {
         "TERMINALVELOCITY_TENANT_ID": "test-tenant",

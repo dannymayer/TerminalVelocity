@@ -17,7 +17,7 @@ class HistoryScreen(ModalScreen[str | None]):
     or ``None`` if cancelled.
     """
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("enter", "load_selected", "Load"),
         Binding("ctrl+l", "clear_history", "Clear history"),

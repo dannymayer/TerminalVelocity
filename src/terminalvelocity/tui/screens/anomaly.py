@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Static
-from rich.text import Text
 
-from terminalvelocity.search.anomaly import AnomalyDetector, AnomalyMarker
 from terminalvelocity.schema import NormalizedEvent
-
+from terminalvelocity.search.anomaly import AnomalyDetector, AnomalyMarker
 
 _KIND_STYLES = {
     "burst_failures": "white on #dc2626",
@@ -22,7 +21,7 @@ _KIND_STYLES = {
 class AnomalyScreen(ModalScreen[None]):
     """Modal listing anomalies detected in the current filtered result set."""
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("j,down", "cursor_down", "Next", show=False),
         Binding("k,up", "cursor_up", "Prev", show=False),

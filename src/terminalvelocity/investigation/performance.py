@@ -4,14 +4,14 @@ from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from itertools import islice
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from terminalvelocity.models import NormalizedEvent
 
 CacheValue = TypeVar('CacheValue')
 
 
-class LRUResultCache(Generic[CacheValue]):
+class LRUResultCache[CacheValue]:
     """A small LRU cache for repeated investigation queries."""
 
     def __init__(self, capacity: int = 128) -> None:
@@ -53,7 +53,7 @@ class LRUResultCache(Generic[CacheValue]):
 
 
 @dataclass(slots=True)
-class PagedResult(Generic[CacheValue]):
+class PagedResult[CacheValue]:
     """A page of results with navigation metadata."""
 
     items: list[CacheValue]
@@ -80,7 +80,7 @@ class PagedResult(Generic[CacheValue]):
         return self.page > 1
 
 
-def paginate_sequence(items: Sequence[CacheValue], *, page: int = 1, page_size: int = 100) -> PagedResult[CacheValue]:
+def paginate_sequence[CacheValue](items: Sequence[CacheValue], *, page: int = 1, page_size: int = 100) -> PagedResult[CacheValue]:
     """Return a single page from an in-memory sequence."""
 
     _validate_pagination(page=page, page_size=page_size)
@@ -89,7 +89,7 @@ def paginate_sequence(items: Sequence[CacheValue], *, page: int = 1, page_size: 
     return PagedResult(items=list(items[start:stop]), page=page, page_size=page_size, total_items=len(items))
 
 
-def paginate_iterable(items: Iterable[CacheValue], *, page: int = 1, page_size: int = 100) -> PagedResult[CacheValue]:
+def paginate_iterable[CacheValue](items: Iterable[CacheValue], *, page: int = 1, page_size: int = 100) -> PagedResult[CacheValue]:
     """Paginate a generic iterable with a single pass over the data."""
 
     _validate_pagination(page=page, page_size=page_size)

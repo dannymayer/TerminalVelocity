@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import gzip
 import json
-from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
 from terminalvelocity.models import NormalizedEvent
 from terminalvelocity.search.engine import SearchEngine
@@ -36,7 +36,7 @@ class IndexManager:
         return count
 
     def update_checkpoint(self, provider: str, checkpoint: str) -> None:
-        self.engine.connection.execute("INSERT INTO ingestion_state(provider, checkpoint, updated_at) VALUES (?, ?, ?) ON CONFLICT(provider) DO UPDATE SET checkpoint = excluded.checkpoint, updated_at = excluded.updated_at", (provider, checkpoint, datetime.now(timezone.utc).isoformat()))
+        self.engine.connection.execute("INSERT INTO ingestion_state(provider, checkpoint, updated_at) VALUES (?, ?, ?) ON CONFLICT(provider) DO UPDATE SET checkpoint = excluded.checkpoint, updated_at = excluded.updated_at", (provider, checkpoint, datetime.now(UTC).isoformat()))
         self.engine.connection.commit()
 
     def get_checkpoint(self, provider: str) -> str | None:
@@ -44,7 +44,7 @@ class IndexManager:
         return row[0] if row else None
 
     def archive_expired_events(self, now: datetime | None = None) -> str | None:
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         cutoff = now - self.hot_window
         rows = self.engine.connection.execute("SELECT * FROM events WHERE archived = 0 AND timestamp < ? ORDER BY timestamp ASC", (cutoff.isoformat(),)).fetchall()
         if not rows:

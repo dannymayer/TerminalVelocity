@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 
 from terminalvelocity.models import NormalizedEvent
 from terminalvelocity.search.parser import SearchQuery
@@ -12,7 +12,7 @@ SEVERITY_ORDER = {"critical": 5, "high": 4, "medium": 3, "warning": 2, "low": 1,
 
 
 def parse_time_expression(expression: str, now: datetime | None = None) -> datetime:
-    now = _ensure_utc(now or datetime.now(timezone.utc))
+    now = _ensure_utc(now or datetime.now(UTC))
     value = expression.strip()
     match = RELATIVE_TIME.match(value)
     if match:
@@ -26,7 +26,7 @@ def parse_time_expression(expression: str, now: datetime | None = None) -> datet
 
 
 def resolve_time_range(query: SearchQuery, now: datetime | None = None) -> tuple[datetime | None, datetime | None]:
-    now = _ensure_utc(now or datetime.now(timezone.utc))
+    now = _ensure_utc(now or datetime.now(UTC))
     return (
         parse_time_expression(query.since, now=now) if query.since else None,
         parse_time_expression(query.until, now=now) if query.until else None,
@@ -64,4 +64,4 @@ def _sort_key(event: NormalizedEvent, sort_by: str):
 
 
 def _ensure_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)

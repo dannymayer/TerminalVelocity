@@ -38,8 +38,7 @@ class FakeGraphClient:
 
     def iter_collection(self, path: str, *, params=None):
         self.get_calls.append((path, params))
-        for item in self.collection_responses.get(path, []):
-            yield item
+        yield from self.collection_responses.get(path, [])
 
 
 class FakeMCASClient:

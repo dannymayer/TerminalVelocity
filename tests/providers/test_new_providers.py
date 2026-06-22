@@ -22,7 +22,6 @@ from terminalvelocity.providers.service_health import ServiceHealthProvider
 from terminalvelocity.providers.unified_audit_log import UnifiedAuditLogProvider
 from terminalvelocity.schema import NormalizedEvent
 
-
 # ---------------------------------------------------------------------------
 # Shared async helpers
 # ---------------------------------------------------------------------------
@@ -265,7 +264,9 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
     def test_default_content_types_include_dlp_powerbi_forms(self):
         ual = UnifiedAuditLogProvider.__new__(UnifiedAuditLogProvider)
         # Instantiate minimally to inspect default content_types
-        import tempfile, pathlib
+        import pathlib
+        import tempfile
+
         from terminalvelocity.providers.base import CheckpointStore, RawLogCache
         ual.tenant_id = "t1"
         ual.client_id = "c1"
@@ -279,14 +280,13 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         ual.authority = "https://login.microsoftonline.com"
         ual.timeout = 30.0
         ual.max_retries = 5
-        from datetime import timedelta
         ual.poll_window = timedelta(minutes=15)
         ual.content_types = UnifiedAuditLogProvider.__init__.__wrapped__ if hasattr(UnifiedAuditLogProvider.__init__, "__wrapped__") else None
         # Just test defaults via the class directly
-        instance_args = dict(
-            tenant_id="t1", client_id="c1", client_secret="s1",
-            checkpoint_store=CheckpointStore(pathlib.Path(tempfile.mkdtemp())),
-        )
+        {
+            "tenant_id": "t1", "client_id": "c1", "client_secret": "s1",
+            "checkpoint_store": CheckpointStore(pathlib.Path(tempfile.mkdtemp())),
+        }
         # We can't call __init__ without an httpx client — use the transport approach
         import httpx as _httpx
 
@@ -308,8 +308,12 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         assert "MicrosoftForms" in real.content_types
 
     def test_dlp_event_normalization(self):
+        import pathlib
+        import tempfile
+
+        import httpx as _httpx
+
         from terminalvelocity.providers.base import CheckpointStore as CS
-        import pathlib, tempfile, httpx as _httpx
         transport = _AsyncMockTransport({"subscriptions/list": []})
         provider = UnifiedAuditLogProvider(
             tenant_id="t1", client_id="c1", client_secret="s1",
@@ -332,8 +336,12 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         assert event.actor == "admin@contoso.com"
 
     def test_powerbi_event_normalization(self):
+        import pathlib
+        import tempfile
+
+        import httpx as _httpx
+
         from terminalvelocity.providers.base import CheckpointStore as CS
-        import pathlib, tempfile, httpx as _httpx
         transport = _AsyncMockTransport({"subscriptions/list": []})
         provider = UnifiedAuditLogProvider(
             tenant_id="t1", client_id="c1", client_secret="s1",
@@ -354,8 +362,12 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         assert event.target == "Sales Report 2025"
 
     def test_forms_event_normalization(self):
+        import pathlib
+        import tempfile
+
+        import httpx as _httpx
+
         from terminalvelocity.providers.base import CheckpointStore as CS
-        import pathlib, tempfile, httpx as _httpx
         transport = _AsyncMockTransport({"subscriptions/list": []})
         provider = UnifiedAuditLogProvider(
             tenant_id="t1", client_id="c1", client_secret="s1",
@@ -845,7 +857,7 @@ class TestCrossProviderEnricherRiskLinking(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestRegistryNewAliases(unittest.TestCase):
-    NEW_ALIASES = {
+    NEW_ALIASES = {  # noqa: RUF012
         "identity_protection": "IdentityProtectionProvider",
         "entra_identity_protection": "IdentityProtectionProvider",
         "advanced_hunting": "AdvancedHuntingProvider",

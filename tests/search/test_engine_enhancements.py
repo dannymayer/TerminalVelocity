@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from terminalvelocity.models import NormalizedEvent
 from terminalvelocity.search.engine import SearchEngine
@@ -19,7 +19,7 @@ def _make_event(
     severity: str = "low",
     minutes_ago: int = 10,
 ) -> NormalizedEvent:
-    ts = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+    ts = datetime.now(UTC) - timedelta(minutes=minutes_ago)
     return NormalizedEvent(
         timestamp=ts,
         provider=provider,
@@ -80,7 +80,7 @@ class SearchEngineTaggingTests(unittest.TestCase):
 class SearchEngineArchivalTests(unittest.TestCase):
     def setUp(self) -> None:
         self.engine = SearchEngine()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self.recent = _make_event(minutes_ago=60)
         self.old = NormalizedEvent(
             timestamp=now - timedelta(hours=500),

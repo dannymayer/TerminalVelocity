@@ -16,7 +16,7 @@ from terminalvelocity.tui.themes import provider_badge, result_badge, severity_b
 class PivotScreen(ModalScreen[NormalizedEvent | None]):
     """Modal that shows all events related to a seed event via actor/target/session."""
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("enter", "select_event", "Jump to event"),
         Binding("j,down", "cursor_down", "Next", show=False),

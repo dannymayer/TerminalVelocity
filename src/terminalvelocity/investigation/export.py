@@ -3,8 +3,9 @@ from __future__ import annotations
 import csv
 import io
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 from terminalvelocity.models import NormalizedEvent
 

@@ -4,7 +4,7 @@ import csv
 import io
 import json
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from terminalvelocity.investigation.export import EventExporter
@@ -17,7 +17,7 @@ class EventExporterTests(unittest.TestCase):
     def setUp(self) -> None:
         self.events = [
             NormalizedEvent(
-                timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2025, 1, 1, 12, 0, tzinfo=UTC),
                 provider='defender',
                 service='identity',
                 actor='user@contoso.com',
