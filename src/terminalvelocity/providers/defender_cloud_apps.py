@@ -96,7 +96,12 @@ class DefenderCloudAppsProvider(BaseProvider):
             (
                 timestamp
                 for timestamp in (
-                    self.ensure_utc(event.get("createdDateTime") or event.get("eventDateTime") or event.get("timestamp") or event.get("date"))
+                    self.ensure_utc(
+                        event.get("createdDateTime")
+                        or event.get("eventDateTime")
+                        or event.get("timestamp")
+                        or event.get("date")
+                    )
                     for event in combined
                 )
                 if timestamp is not None

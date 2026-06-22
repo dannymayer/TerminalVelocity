@@ -52,6 +52,7 @@ class TimelineScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         from textual.containers import Vertical
+
         with Vertical(id="timeline-dialog"):
             yield Static("Timeline: Actor Activity", id="timeline-title")
             yield Static("", id="timeline-subtitle")

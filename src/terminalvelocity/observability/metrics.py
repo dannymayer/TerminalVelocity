@@ -65,7 +65,9 @@ class IngestionMetrics:
     def record_fetch(self, provider: str, count: int) -> None:
         self.for_provider(provider).record_fetch(count)
 
-    def record_normalized(self, provider: str, count: int = 1, *, latest_event_timestamp: datetime | None = None) -> None:
+    def record_normalized(
+        self, provider: str, count: int = 1, *, latest_event_timestamp: datetime | None = None
+    ) -> None:
         self.for_provider(provider).record_normalized(count=count, latest_event_timestamp=latest_event_timestamp)
 
     def record_error(self, provider: str, error: Exception | str) -> None:

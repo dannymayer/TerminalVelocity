@@ -26,6 +26,7 @@ from terminalvelocity.schema import NormalizedEvent
 # Shared async helpers
 # ---------------------------------------------------------------------------
 
+
 def run(coro):
     return asyncio.run(coro)
 
@@ -39,6 +40,7 @@ def _make_checkpoint_dir(tmp_path, name):
 # ---------------------------------------------------------------------------
 # Fake async HTTP transport helpers
 # ---------------------------------------------------------------------------
+
 
 class _AsyncMockTransport(httpx.AsyncBaseTransport):
     """Simple URL-routing mock transport for httpx.AsyncClient."""
@@ -73,33 +75,38 @@ def _make_provider(cls, routes, tmp_dir, **kwargs):
 # EntraIdProvider — new endpoints
 # ---------------------------------------------------------------------------
 
+
 class TestEntraIdExtended(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 1, 1, 1, tzinfo=UTC)
 
     def _provider(self, routes):
         from pathlib import Path
+
         return _make_provider(EntraIdProvider, routes, Path(self.tmp))
 
     def test_sp_signin_normalization(self):
         routes = {
             "/auditLogs/signIns": {"value": []},
             "/auditLogs/directoryAudits": {"value": []},
-            "/auditLogs/servicePrincipals": {"value": [
-                {
-                    "id": "sp-1",
-                    "createdDateTime": "2025-01-01T00:05:00Z",
-                    "servicePrincipalId": "sp-id-1",
-                    "servicePrincipalName": "MyApp",
-                    "resourceDisplayName": "Microsoft Graph",
-                    "correlationId": "corr-sp-1",
-                    "status": {"errorCode": 0},
-                    "clientCredentialType": "secret",
-                }
-            ]},
+            "/auditLogs/servicePrincipals": {
+                "value": [
+                    {
+                        "id": "sp-1",
+                        "createdDateTime": "2025-01-01T00:05:00Z",
+                        "servicePrincipalId": "sp-id-1",
+                        "servicePrincipalName": "MyApp",
+                        "resourceDisplayName": "Microsoft Graph",
+                        "correlationId": "corr-sp-1",
+                        "status": {"errorCode": 0},
+                        "clientCredentialType": "secret",
+                    }
+                ]
+            },
             "/auditLogs/provisioning": {"value": []},
         }
         provider = self._provider(routes)
@@ -116,20 +123,22 @@ class TestEntraIdExtended(unittest.TestCase):
             "/auditLogs/signIns": {"value": []},
             "/auditLogs/directoryAudits": {"value": []},
             "/auditLogs/servicePrincipals": {"value": []},
-            "/auditLogs/provisioning": {"value": [
-                {
-                    "id": "prov-1",
-                    "activityDateTime": "2025-01-01T00:10:00Z",
-                    "jobId": "job-1",
-                    "cycleId": "cycle-1",
-                    "provisioningAction": "Create",
-                    "initiatedBy": {"user": {"userPrincipalName": "admin@contoso.com"}},
-                    "targetIdentity": {"displayName": "NewUser"},
-                    "sourceSystem": {"displayName": "Workday"},
-                    "targetSystem": {"displayName": "Azure AD"},
-                    "statusInfo": {"status": "success"},
-                }
-            ]},
+            "/auditLogs/provisioning": {
+                "value": [
+                    {
+                        "id": "prov-1",
+                        "activityDateTime": "2025-01-01T00:10:00Z",
+                        "jobId": "job-1",
+                        "cycleId": "cycle-1",
+                        "provisioningAction": "Create",
+                        "initiatedBy": {"user": {"userPrincipalName": "admin@contoso.com"}},
+                        "targetIdentity": {"displayName": "NewUser"},
+                        "sourceSystem": {"displayName": "Workday"},
+                        "targetSystem": {"displayName": "Azure AD"},
+                        "statusInfo": {"status": "success"},
+                    }
+                ]
+            },
         }
         provider = self._provider(routes)
         events = run(provider.fetch(start_time=self.start, end_time=self.end))
@@ -143,19 +152,21 @@ class TestEntraIdExtended(unittest.TestCase):
 
     def test_risky_signin_uses_risk_level_during_signin(self):
         routes = {
-            "/auditLogs/signIns": {"value": [
-                {
-                    "id": "signin-risky",
-                    "createdDateTime": "2025-01-01T00:01:00Z",
-                    "userPrincipalName": "victim@contoso.com",
-                    "resourceDisplayName": "SharePoint",
-                    "correlationId": "corr-risk",
-                    "status": {"errorCode": 0},
-                    "riskLevelAggregated": "none",
-                    "riskLevelDuringSignIn": "high",
-                    "riskState": "atRisk",
-                }
-            ]},
+            "/auditLogs/signIns": {
+                "value": [
+                    {
+                        "id": "signin-risky",
+                        "createdDateTime": "2025-01-01T00:01:00Z",
+                        "userPrincipalName": "victim@contoso.com",
+                        "resourceDisplayName": "SharePoint",
+                        "correlationId": "corr-risk",
+                        "status": {"errorCode": 0},
+                        "riskLevelAggregated": "none",
+                        "riskLevelDuringSignIn": "high",
+                        "riskState": "atRisk",
+                    }
+                ]
+            },
             "/auditLogs/directoryAudits": {"value": []},
             "/auditLogs/servicePrincipals": {"value": []},
             "/auditLogs/provisioning": {"value": []},
@@ -171,32 +182,37 @@ class TestEntraIdExtended(unittest.TestCase):
 # IdentityProtectionProvider
 # ---------------------------------------------------------------------------
 
+
 class TestIdentityProtectionProvider(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 1, 1, 1, tzinfo=UTC)
 
     def _provider(self, routes):
         from pathlib import Path
+
         return _make_provider(IdentityProtectionProvider, routes, Path(self.tmp))
 
     def test_risk_detection_normalization(self):
         routes = {
-            "/identityProtection/riskDetections": {"value": [
-                {
-                    "id": "det-1",
-                    "detectedDateTime": "2025-01-01T00:02:00Z",
-                    "riskEventType": "anonymizedIPAddress",
-                    "riskLevel": "high",
-                    "riskState": "atRisk",
-                    "userPrincipalName": "victim@contoso.com",
-                    "correlationId": "corr-risk-1",
-                    "ipAddress": "1.2.3.4",
-                    "tenantId": "t1",
-                }
-            ]},
+            "/identityProtection/riskDetections": {
+                "value": [
+                    {
+                        "id": "det-1",
+                        "detectedDateTime": "2025-01-01T00:02:00Z",
+                        "riskEventType": "anonymizedIPAddress",
+                        "riskLevel": "high",
+                        "riskState": "atRisk",
+                        "userPrincipalName": "victim@contoso.com",
+                        "correlationId": "corr-risk-1",
+                        "ipAddress": "1.2.3.4",
+                        "tenantId": "t1",
+                    }
+                ]
+            },
             "/identityProtection/riskyUsers": {"value": []},
             "/identityProtection/riskyServicePrincipals": {"value": []},
         }
@@ -212,16 +228,18 @@ class TestIdentityProtectionProvider(unittest.TestCase):
     def test_risky_user_normalization(self):
         routes = {
             "/identityProtection/riskDetections": {"value": []},
-            "/identityProtection/riskyUsers": {"value": [
-                {
-                    "id": "usr-1",
-                    "riskLastUpdatedDateTime": "2025-01-01T00:03:00Z",
-                    "userPrincipalName": "victim@contoso.com",
-                    "userDisplayName": "Victim User",
-                    "riskLevel": "critical",
-                    "riskState": "confirmedCompromised",
-                }
-            ]},
+            "/identityProtection/riskyUsers": {
+                "value": [
+                    {
+                        "id": "usr-1",
+                        "riskLastUpdatedDateTime": "2025-01-01T00:03:00Z",
+                        "userPrincipalName": "victim@contoso.com",
+                        "userDisplayName": "Victim User",
+                        "riskLevel": "critical",
+                        "riskState": "confirmedCompromised",
+                    }
+                ]
+            },
             "/identityProtection/riskyServicePrincipals": {"value": []},
         }
         provider = self._provider(routes)
@@ -236,16 +254,18 @@ class TestIdentityProtectionProvider(unittest.TestCase):
         routes = {
             "/identityProtection/riskDetections": {"value": []},
             "/identityProtection/riskyUsers": {"value": []},
-            "/identityProtection/riskyServicePrincipals": {"value": [
-                {
-                    "id": "sp-1",
-                    "riskLastUpdatedDateTime": "2025-01-01T00:04:00Z",
-                    "displayName": "CompromisedApp",
-                    "appId": "app-id-1",
-                    "riskLevel": "high",
-                    "riskState": "atRisk",
-                }
-            ]},
+            "/identityProtection/riskyServicePrincipals": {
+                "value": [
+                    {
+                        "id": "sp-1",
+                        "riskLastUpdatedDateTime": "2025-01-01T00:04:00Z",
+                        "displayName": "CompromisedApp",
+                        "appId": "app-id-1",
+                        "riskLevel": "high",
+                        "riskState": "atRisk",
+                    }
+                ]
+            },
         }
         provider = self._provider(routes)
         events = run(provider.fetch(start_time=self.start, end_time=self.end))
@@ -260,6 +280,7 @@ class TestIdentityProtectionProvider(unittest.TestCase):
 # UnifiedAuditLogProvider — extended content types
 # ---------------------------------------------------------------------------
 
+
 class TestUnifiedAuditLogExtended(unittest.TestCase):
     def test_default_content_types_include_dlp_powerbi_forms(self):
         ual = UnifiedAuditLogProvider.__new__(UnifiedAuditLogProvider)
@@ -268,6 +289,7 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         import tempfile
 
         from terminalvelocity.providers.base import CheckpointStore, RawLogCache
+
         ual.tenant_id = "t1"
         ual.client_id = "c1"
         ual.client_secret = "s1"
@@ -281,10 +303,16 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         ual.timeout = 30.0
         ual.max_retries = 5
         ual.poll_window = timedelta(minutes=15)
-        ual.content_types = UnifiedAuditLogProvider.__init__.__wrapped__ if hasattr(UnifiedAuditLogProvider.__init__, "__wrapped__") else None
+        ual.content_types = (
+            UnifiedAuditLogProvider.__init__.__wrapped__
+            if hasattr(UnifiedAuditLogProvider.__init__, "__wrapped__")
+            else None
+        )
         # Just test defaults via the class directly
         {
-            "tenant_id": "t1", "client_id": "c1", "client_secret": "s1",
+            "tenant_id": "t1",
+            "client_id": "c1",
+            "client_secret": "s1",
             "checkpoint_store": CheckpointStore(pathlib.Path(tempfile.mkdtemp())),
         }
         # We can't call __init__ without an httpx client — use the transport approach
@@ -293,13 +321,18 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         async def _get_token_mock(scope):
             return "tok"
 
-        transport = _AsyncMockTransport({
-            "subscriptions/list": [],
-        })
+        transport = _AsyncMockTransport(
+            {
+                "subscriptions/list": [],
+            }
+        )
         client = _httpx.AsyncClient(transport=transport)
         from terminalvelocity.providers.base import CheckpointStore as CS
+
         real = UnifiedAuditLogProvider(
-            tenant_id="t1", client_id="c1", client_secret="s1",
+            tenant_id="t1",
+            client_id="c1",
+            client_secret="s1",
             checkpoint_store=CS(pathlib.Path(tempfile.mkdtemp())),
             http_client=client,
         )
@@ -314,22 +347,27 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         import httpx as _httpx
 
         from terminalvelocity.providers.base import CheckpointStore as CS
+
         transport = _AsyncMockTransport({"subscriptions/list": []})
         provider = UnifiedAuditLogProvider(
-            tenant_id="t1", client_id="c1", client_secret="s1",
+            tenant_id="t1",
+            client_id="c1",
+            client_secret="s1",
             checkpoint_store=CS(pathlib.Path(tempfile.mkdtemp())),
             http_client=_httpx.AsyncClient(transport=transport),
         )
-        event = provider.normalize({
-            "CreationTime": "2025-01-01T00:20:00Z",
-            "Workload": "SecurityComplianceCenter",
-            "UserId": "admin@contoso.com",
-            "PolicyDetails": [{"PolicyName": "SSN Detection Policy"}],
-            "SensitiveInfoTypeData": [{"SensitiveType": "U.S. SSN"}],
-            "ObjectId": "/sites/finance/docs/payroll.xlsx",
-            "OrganizationId": "org-1",
-            "Id": "dlp-1",
-        })
+        event = provider.normalize(
+            {
+                "CreationTime": "2025-01-01T00:20:00Z",
+                "Workload": "SecurityComplianceCenter",
+                "UserId": "admin@contoso.com",
+                "PolicyDetails": [{"PolicyName": "SSN Detection Policy"}],
+                "SensitiveInfoTypeData": [{"SensitiveType": "U.S. SSN"}],
+                "ObjectId": "/sites/finance/docs/payroll.xlsx",
+                "OrganizationId": "org-1",
+                "Id": "dlp-1",
+            }
+        )
         assert event.service == "Microsoft Purview DLP"
         assert event.action == "SSN Detection Policy"
         assert event.severity == "high"
@@ -342,21 +380,26 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         import httpx as _httpx
 
         from terminalvelocity.providers.base import CheckpointStore as CS
+
         transport = _AsyncMockTransport({"subscriptions/list": []})
         provider = UnifiedAuditLogProvider(
-            tenant_id="t1", client_id="c1", client_secret="s1",
+            tenant_id="t1",
+            client_id="c1",
+            client_secret="s1",
             checkpoint_store=CS(pathlib.Path(tempfile.mkdtemp())),
             http_client=_httpx.AsyncClient(transport=transport),
         )
-        event = provider.normalize({
-            "CreationTime": "2025-01-01T00:21:00Z",
-            "Workload": "PowerBI",
-            "UserId": "analyst@contoso.com",
-            "Operation": "ExportReport",
-            "DatasetName": "Sales Report 2025",
-            "OrganizationId": "org-1",
-            "Id": "pbi-1",
-        })
+        event = provider.normalize(
+            {
+                "CreationTime": "2025-01-01T00:21:00Z",
+                "Workload": "PowerBI",
+                "UserId": "analyst@contoso.com",
+                "Operation": "ExportReport",
+                "DatasetName": "Sales Report 2025",
+                "OrganizationId": "org-1",
+                "Id": "pbi-1",
+            }
+        )
         assert event.service == "Microsoft Power BI"
         assert event.action == "ExportReport"
         assert event.target == "Sales Report 2025"
@@ -368,21 +411,26 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
         import httpx as _httpx
 
         from terminalvelocity.providers.base import CheckpointStore as CS
+
         transport = _AsyncMockTransport({"subscriptions/list": []})
         provider = UnifiedAuditLogProvider(
-            tenant_id="t1", client_id="c1", client_secret="s1",
+            tenant_id="t1",
+            client_id="c1",
+            client_secret="s1",
             checkpoint_store=CS(pathlib.Path(tempfile.mkdtemp())),
             http_client=_httpx.AsyncClient(transport=transport),
         )
-        event = provider.normalize({
-            "CreationTime": "2025-01-01T00:22:00Z",
-            "Workload": "MicrosoftForms",
-            "UserId": "user@contoso.com",
-            "Operation": "ViewResponse",
-            "FormName": "IT Access Request",
-            "OrganizationId": "org-1",
-            "Id": "forms-1",
-        })
+        event = provider.normalize(
+            {
+                "CreationTime": "2025-01-01T00:22:00Z",
+                "Workload": "MicrosoftForms",
+                "UserId": "user@contoso.com",
+                "Operation": "ViewResponse",
+                "FormName": "IT Access Request",
+                "OrganizationId": "org-1",
+                "Id": "forms-1",
+            }
+        )
         assert event.service == "Microsoft Forms"
         assert event.action == "ViewResponse"
         assert event.target == "IT Access Request"
@@ -392,17 +440,22 @@ class TestUnifiedAuditLogExtended(unittest.TestCase):
 # DefenderXdrProvider — vulnerability management
 # ---------------------------------------------------------------------------
 
+
 class TestDefenderXdrVulnerabilities(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 1, 1, 1, tzinfo=UTC)
 
     def _provider(self, routes, include_vulnerabilities=True):
         from pathlib import Path
+
         return _make_provider(
-            DefenderXdrProvider, routes, Path(self.tmp),
+            DefenderXdrProvider,
+            routes,
+            Path(self.tmp),
             include_vulnerabilities=include_vulnerabilities,
         )
 
@@ -449,31 +502,34 @@ class TestDefenderXdrVulnerabilities(unittest.TestCase):
 # SecureScoreProvider
 # ---------------------------------------------------------------------------
 
+
 class TestSecureScoreProvider(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 1, 2, tzinfo=UTC)
 
     def _provider(self, routes):
         from pathlib import Path
+
         return _make_provider(SecureScoreProvider, routes, Path(self.tmp))
 
     def test_score_snapshot_normalization(self):
         routes = {
-            "/security/secureScores": {"value": [
-                {
-                    "id": "score-1",
-                    "createdDateTime": "2025-01-01T08:00:00Z",
-                    "currentScore": 350.0,
-                    "maxScore": 500.0,
-                    "tenantId": "t1",
-                    "averageComparativeScores": [
-                        {"basis": "AllTenants", "averageScore": 320.0}
-                    ],
-                }
-            ]},
+            "/security/secureScores": {
+                "value": [
+                    {
+                        "id": "score-1",
+                        "createdDateTime": "2025-01-01T08:00:00Z",
+                        "currentScore": 350.0,
+                        "maxScore": 500.0,
+                        "tenantId": "t1",
+                        "averageComparativeScores": [{"basis": "AllTenants", "averageScore": 320.0}],
+                    }
+                ]
+            },
             "/security/secureScoreControlProfiles": {"value": []},
         }
         provider = self._provider(routes)
@@ -489,15 +545,17 @@ class TestSecureScoreProvider(unittest.TestCase):
     def test_control_profile_normalization(self):
         routes = {
             "/security/secureScores": {"value": []},
-            "/security/secureScoreControlProfiles": {"value": [
-                {
-                    "id": "ctrl-mfa",
-                    "title": "Require MFA for all users",
-                    "implementationStatus": "implemented",
-                    "lastModifiedDateTime": "2025-01-01T09:00:00Z",
-                    "rank": 1,
-                }
-            ]},
+            "/security/secureScoreControlProfiles": {
+                "value": [
+                    {
+                        "id": "ctrl-mfa",
+                        "title": "Require MFA for all users",
+                        "implementationStatus": "implemented",
+                        "lastModifiedDateTime": "2025-01-01T09:00:00Z",
+                        "rank": 1,
+                    }
+                ]
+            },
         }
         provider = self._provider(routes)
         events = run(provider.fetch(start_time=self.start, end_time=self.end))
@@ -512,30 +570,35 @@ class TestSecureScoreProvider(unittest.TestCase):
 # ServiceHealthProvider
 # ---------------------------------------------------------------------------
 
+
 class TestServiceHealthProvider(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 1, 2, tzinfo=UTC)
 
     def _provider(self, routes):
         from pathlib import Path
+
         return _make_provider(ServiceHealthProvider, routes, Path(self.tmp))
 
     def test_service_issue_normalization(self):
         routes = {
-            "/admin/serviceAnnouncement/issues": {"value": [
-                {
-                    "id": "issue-1",
-                    "title": "Exchange Online degraded performance",
-                    "service": "Exchange Online",
-                    "classification": "incident",
-                    "status": "investigating",
-                    "lastModifiedDateTime": "2025-01-01T12:00:00Z",
-                    "startDateTime": "2025-01-01T11:00:00Z",
-                }
-            ]},
+            "/admin/serviceAnnouncement/issues": {
+                "value": [
+                    {
+                        "id": "issue-1",
+                        "title": "Exchange Online degraded performance",
+                        "service": "Exchange Online",
+                        "classification": "incident",
+                        "status": "investigating",
+                        "lastModifiedDateTime": "2025-01-01T12:00:00Z",
+                        "startDateTime": "2025-01-01T11:00:00Z",
+                    }
+                ]
+            },
             "/admin/serviceAnnouncement/healthOverviews": {"value": []},
         }
         provider = self._provider(routes)
@@ -550,13 +613,15 @@ class TestServiceHealthProvider(unittest.TestCase):
     def test_health_overview_normalization(self):
         routes = {
             "/admin/serviceAnnouncement/issues": {"value": []},
-            "/admin/serviceAnnouncement/healthOverviews": {"value": [
-                {
-                    "id": "overview-1",
-                    "service": "Microsoft Teams",
-                    "status": "serviceRestored",
-                }
-            ]},
+            "/admin/serviceAnnouncement/healthOverviews": {
+                "value": [
+                    {
+                        "id": "overview-1",
+                        "service": "Microsoft Teams",
+                        "status": "serviceRestored",
+                    }
+                ]
+            },
         }
         provider = self._provider(routes)
         events = run(provider.fetch(start_time=self.start, end_time=self.end))
@@ -571,9 +636,11 @@ class TestServiceHealthProvider(unittest.TestCase):
 # AdvancedHuntingProvider
 # ---------------------------------------------------------------------------
 
+
 class TestAdvancedHuntingProvider(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 1, 1, 1, tzinfo=UTC)
@@ -616,8 +683,11 @@ class TestAdvancedHuntingProvider(unittest.TestCase):
 
     def test_email_events_delivery_action_mapping(self):
         from pathlib import Path
+
         provider = AdvancedHuntingProvider(
-            tenant_id="t1", client_id="c1", client_secret="s1",
+            tenant_id="t1",
+            client_id="c1",
+            client_secret="s1",
             checkpoint_store=CheckpointStore(Path(self.tmp)),
             http_client=httpx.AsyncClient(transport=_AsyncMockTransport({})),
         )
@@ -641,8 +711,11 @@ class TestAdvancedHuntingProvider(unittest.TestCase):
 
     def test_delivered_email_maps_to_success(self):
         from pathlib import Path
+
         provider = AdvancedHuntingProvider(
-            tenant_id="t1", client_id="c1", client_secret="s1",
+            tenant_id="t1",
+            client_id="c1",
+            client_secret="s1",
             checkpoint_store=CheckpointStore(Path(self.tmp)),
             http_client=httpx.AsyncClient(transport=_AsyncMockTransport({})),
         )
@@ -661,40 +734,47 @@ class TestAdvancedHuntingProvider(unittest.TestCase):
 # AttackSimulationProvider
 # ---------------------------------------------------------------------------
 
+
 class TestAttackSimulationProvider(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 2, 1, tzinfo=UTC)
 
     def _provider(self, routes):
         from pathlib import Path
+
         return _make_provider(AttackSimulationProvider, routes, Path(self.tmp))
 
     def test_simulation_user_result_normalization(self):
         sim_id = "sim-1"
         routes = {
-            "/security/attackSimulation/simulations": {"value": [
-                {
-                    "id": sim_id,
-                    "displayName": "Q1 Phishing Test",
-                    "launchDateTime": "2025-01-15T09:00:00Z",
-                    "attackTechnique": "CredentialHarvesting",
-                }
-            ]},
-            f"/security/attackSimulation/simulations/{sim_id}/simulationUsers": {"value": [
-                {
-                    "id": "user-result-1",
-                    "simulationUser": {"email": "victim@contoso.com"},
-                    "assignedDateTime": "2025-01-15T09:00:00Z",
-                    "simulationEvents": [
-                        {"simulationEventType": "SimulationEmailSent"},
-                        {"simulationEventType": "LinkClicked"},
-                        {"simulationEventType": "CredentialsEntered"},
-                    ],
-                }
-            ]},
+            "/security/attackSimulation/simulations": {
+                "value": [
+                    {
+                        "id": sim_id,
+                        "displayName": "Q1 Phishing Test",
+                        "launchDateTime": "2025-01-15T09:00:00Z",
+                        "attackTechnique": "CredentialHarvesting",
+                    }
+                ]
+            },
+            f"/security/attackSimulation/simulations/{sim_id}/simulationUsers": {
+                "value": [
+                    {
+                        "id": "user-result-1",
+                        "simulationUser": {"email": "victim@contoso.com"},
+                        "assignedDateTime": "2025-01-15T09:00:00Z",
+                        "simulationEvents": [
+                            {"simulationEventType": "SimulationEmailSent"},
+                            {"simulationEventType": "LinkClicked"},
+                            {"simulationEventType": "CredentialsEntered"},
+                        ],
+                    }
+                ]
+            },
         }
         provider = self._provider(routes)
         events = run(provider.fetch(start_time=self.start, end_time=self.end))
@@ -707,8 +787,11 @@ class TestAttackSimulationProvider(unittest.TestCase):
 
     def test_reported_phish_maps_to_success(self):
         from pathlib import Path
+
         provider = AttackSimulationProvider(
-            tenant_id="t1", client_id="c1", client_secret="s1",
+            tenant_id="t1",
+            client_id="c1",
+            client_secret="s1",
             checkpoint_store=CheckpointStore(Path(self.tmp)),
             http_client=httpx.AsyncClient(transport=_AsyncMockTransport({})),
         )
@@ -732,32 +815,37 @@ class TestAttackSimulationProvider(unittest.TestCase):
 # PIMProvider
 # ---------------------------------------------------------------------------
 
+
 class TestPIMProvider(unittest.TestCase):
     def setUp(self):
         import tempfile
+
         self.tmp = tempfile.mkdtemp()
         self.start = datetime(2025, 1, 1, tzinfo=UTC)
         self.end = datetime(2025, 1, 1, 1, tzinfo=UTC)
 
     def _provider(self, routes):
         from pathlib import Path
+
         return _make_provider(PIMProvider, routes, Path(self.tmp))
 
     def test_role_activation_request_normalization(self):
         routes = {
-            "/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests": {"value": [
-                {
-                    "id": "req-1",
-                    "requestedDateTime": "2025-01-01T00:40:00Z",
-                    "requestType": "UserAdd",
-                    "assignmentState": "Active",
-                    "status": "Granted",
-                    "reason": "Emergency incident response",
-                    "roleDefinition": {"displayName": "Global Administrator"},
-                    "subject": {"userPrincipalName": "admin@contoso.com"},
-                    "ticketInfo": {"ticketNumber": "INC-1234"},
-                }
-            ]},
+            "/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests": {
+                "value": [
+                    {
+                        "id": "req-1",
+                        "requestedDateTime": "2025-01-01T00:40:00Z",
+                        "requestType": "UserAdd",
+                        "assignmentState": "Active",
+                        "status": "Granted",
+                        "reason": "Emergency incident response",
+                        "roleDefinition": {"displayName": "Global Administrator"},
+                        "subject": {"userPrincipalName": "admin@contoso.com"},
+                        "ticketInfo": {"ticketNumber": "INC-1234"},
+                    }
+                ]
+            },
             "/identityGovernance/privilegedAccess/aadRoles/roleAssignments": {"value": []},
         }
         provider = self._provider(routes)
@@ -775,14 +863,16 @@ class TestPIMProvider(unittest.TestCase):
     def test_active_assignment_normalization(self):
         routes = {
             "/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests": {"value": []},
-            "/identityGovernance/privilegedAccess/aadRoles/roleAssignments": {"value": [
-                {
-                    "id": "assign-1",
-                    "startDateTime": "2025-01-01T00:00:00Z",
-                    "roleDefinition": {"displayName": "Security Reader"},
-                    "subject": {"userPrincipalName": "analyst@contoso.com"},
-                }
-            ]},
+            "/identityGovernance/privilegedAccess/aadRoles/roleAssignments": {
+                "value": [
+                    {
+                        "id": "assign-1",
+                        "startDateTime": "2025-01-01T00:00:00Z",
+                        "roleDefinition": {"displayName": "Security Reader"},
+                        "subject": {"userPrincipalName": "analyst@contoso.com"},
+                    }
+                ]
+            },
         }
         provider = self._provider(routes)
         events = run(provider.fetch(start_time=self.start, end_time=self.end))
@@ -797,6 +887,7 @@ class TestPIMProvider(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # CrossProviderEnricher — risk linking
 # ---------------------------------------------------------------------------
+
 
 class TestCrossProviderEnricherRiskLinking(unittest.TestCase):
     def _make_sign_in(self, correlation_id: str, request_id: str | None = None) -> NormalizedEvent:
@@ -855,6 +946,7 @@ class TestCrossProviderEnricherRiskLinking(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # ProviderRegistry — new aliases
 # ---------------------------------------------------------------------------
+
 
 class TestRegistryNewAliases(unittest.TestCase):
     NEW_ALIASES = {  # noqa: RUF012

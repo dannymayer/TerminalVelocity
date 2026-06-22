@@ -59,12 +59,8 @@ class DetailPanel(Widget):
         self.query_one("#detail-summary", Static).update(summary)
 
         normalized_json = json.dumps(event.to_record(), indent=2, sort_keys=True)
-        self.query_one("#normalized-json", Static).update(
-            Syntax(normalized_json, "json", word_wrap=True)
-        )
-        self.query_one("#raw-json", Static).update(
-            Syntax(event.raw_json(), "json", word_wrap=True)
-        )
+        self.query_one("#normalized-json", Static).update(Syntax(normalized_json, "json", word_wrap=True))
+        self.query_one("#raw-json", Static).update(Syntax(event.raw_json(), "json", word_wrap=True))
         self.query_one("#chain-view", Static).update(self._build_chain_view(event))
 
     def _build_chain_view(self, event: NormalizedEvent) -> Text:
@@ -108,7 +104,4 @@ class DetailPanel(Widget):
         if not event.correlation_id or not self._all_events:
             return []
         key = event.cache_key()
-        return [
-            e for e in self._all_events
-            if e.correlation_id == event.correlation_id and e.cache_key() != key
-        ]
+        return [e for e in self._all_events if e.correlation_id == event.correlation_id and e.cache_key() != key]

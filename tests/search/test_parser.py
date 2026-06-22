@@ -7,7 +7,9 @@ from terminalvelocity.search.parser import QuerySyntaxError, parse_query
 
 class QueryParserTests(unittest.TestCase):
     def test_parses_free_text_fields_and_sort(self) -> None:
-        query = parse_query('failed login provider:defender result:failure actor:user@contoso.com since:1h sort:severity')
+        query = parse_query(
+            "failed login provider:defender result:failure actor:user@contoso.com since:1h sort:severity"
+        )
         self.assertEqual(query.free_text, ["failed", "login"])
         self.assertEqual(query.field_values("provider"), ["defender"])
         self.assertEqual(query.field_values("result"), ["failure"])
@@ -26,4 +28,4 @@ class QueryParserTests(unittest.TestCase):
 
     def test_rejects_unknown_filter_fields(self) -> None:
         with self.assertRaises(QuerySyntaxError):
-            parse_query('unknown:value result:failure')
+            parse_query("unknown:value result:failure")

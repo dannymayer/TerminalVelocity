@@ -56,6 +56,7 @@ class AnomalyScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         from textual.containers import Vertical
+
         with Vertical(id="anomaly-dialog"):
             yield Static("⚠ Anomaly Detection Results", id="anomaly-title")
             yield Static("", id="anomaly-subtitle")
@@ -85,9 +86,7 @@ class AnomalyScreen(ModalScreen[None]):
             )
 
         if not self._markers:
-            self.query_one("#anomaly-subtitle", Static).update(
-                "No anomalies detected in the current result set."
-            )
+            self.query_one("#anomaly-subtitle", Static).update("No anomalies detected in the current result set.")
 
     def action_close(self) -> None:
         self.dismiss(None)

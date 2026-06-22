@@ -34,44 +34,58 @@ class PIMProvider(BaseProviderAdapter):
 
     provider_name = "pim"
     provider_scope = "https://graph.microsoft.com/.default"
-    connection_test_url = "https://graph.microsoft.com/v1.0/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests"
+    connection_test_url = (
+        "https://graph.microsoft.com/v1.0/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests"
+    )
     connection_test_params = {"$top": 1}  # noqa: RUF012
 
-    async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
+    async def fetch(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)
         time_filter = f"requestedDateTime ge {isoformat_z(start)} and requestedDateTime le {isoformat_z(end)}"
 
         # Role assignment requests (activation, deactivation, assignment, removal)
-        requests = [item async for item in self._iterate_collection(
-            "https://graph.microsoft.com/v1.0/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests",
-            scope=self.provider_scope,
-            params={"$filter": time_filter, "$top": 100, "$expand": "roleDefinition,subject"},
-        )]
+        requests = [
+            item
+            async for item in self._iterate_collection(
+                "https://graph.microsoft.com/v1.0/identityGovernance/privilegedAccess/aadRoles/roleAssignmentRequests",
+                scope=self.provider_scope,
+                params={"$filter": time_filter, "$top": 100, "$expand": "roleDefinition,subject"},
+            )
+        ]
         for item in requests:
             item["_tv_source"] = "roleAssignmentRequest"
 
         # Current active role assignments (snapshot — no time filter available)
-        assignments = [item async for item in self._iterate_collection(
-            "https://graph.microsoft.com/v1.0/identityGovernance/privilegedAccess/aadRoles/roleAssignments",
-            scope=self.provider_scope,
-            params={"$top": 100, "$expand": "roleDefinition,subject"},
-        )]
+        assignments = [
+            item
+            async for item in self._iterate_collection(
+                "https://graph.microsoft.com/v1.0/identityGovernance/privilegedAccess/aadRoles/roleAssignments",
+                scope=self.provider_scope,
+                params={"$top": 100, "$expand": "roleDefinition,subject"},
+            )
+        ]
         for item in assignments:
             item["_tv_source"] = "roleAssignment"
 
         raw_events = requests + assignments
         self.cache_raw_payloads(raw_events)
         events = [self.normalize(item) for item in raw_events]
-        last_event_time = max((event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC))
-        await self.checkpoint(ProviderCheckpoint(
-            provider=self.provider_name,
-            cursor=isoformat_z(end),
-            last_event_time=last_event_time,
-            metadata={
-                "request_count": len(requests),
-                "assignment_count": len(assignments),
-            },
-        ))
+        last_event_time = max(
+            (event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC)
+        )
+        await self.checkpoint(
+            ProviderCheckpoint(
+                provider=self.provider_name,
+                cursor=isoformat_z(end),
+                last_event_time=last_event_time,
+                metadata={
+                    "request_count": len(requests),
+                    "assignment_count": len(assignments),
+                },
+            )
+        )
         return events
 
     def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
@@ -111,7 +125,7 @@ class PIMProvider(BaseProviderAdapter):
                 action=action,
                 target=role_name,
                 result=_PIM_STATUS_MAP.get(str(payload.get("status") or payload.get("requestStatus") or "").lower())
-                    or map_result(payload.get("status") or payload.get("requestStatus")),
+                or map_result(payload.get("status") or payload.get("requestStatus")),
                 severity="high" if "Global Administrator" in role_name else "medium",
                 correlation_id=payload.get("id"),
                 request_id=payload.get("id"),

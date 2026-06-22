@@ -8,7 +8,7 @@ from typing import TypeVar
 
 from terminalvelocity.models import NormalizedEvent
 
-CacheValue = TypeVar('CacheValue')
+CacheValue = TypeVar("CacheValue")
 
 
 class LRUResultCache[CacheValue]:
@@ -16,7 +16,7 @@ class LRUResultCache[CacheValue]:
 
     def __init__(self, capacity: int = 128) -> None:
         if capacity <= 0:
-            raise ValueError('capacity must be greater than zero')
+            raise ValueError("capacity must be greater than zero")
         self.capacity = capacity
         self._items: OrderedDict[str, CacheValue] = OrderedDict()
 
@@ -80,7 +80,9 @@ class PagedResult[CacheValue]:
         return self.page > 1
 
 
-def paginate_sequence[CacheValue](items: Sequence[CacheValue], *, page: int = 1, page_size: int = 100) -> PagedResult[CacheValue]:
+def paginate_sequence[CacheValue](
+    items: Sequence[CacheValue], *, page: int = 1, page_size: int = 100
+) -> PagedResult[CacheValue]:
     """Return a single page from an in-memory sequence."""
 
     _validate_pagination(page=page, page_size=page_size)
@@ -89,7 +91,9 @@ def paginate_sequence[CacheValue](items: Sequence[CacheValue], *, page: int = 1,
     return PagedResult(items=list(items[start:stop]), page=page, page_size=page_size, total_items=len(items))
 
 
-def paginate_iterable[CacheValue](items: Iterable[CacheValue], *, page: int = 1, page_size: int = 100) -> PagedResult[CacheValue]:
+def paginate_iterable[CacheValue](
+    items: Iterable[CacheValue], *, page: int = 1, page_size: int = 100
+) -> PagedResult[CacheValue]:
     """Paginate a generic iterable with a single pass over the data."""
 
     _validate_pagination(page=page, page_size=page_size)
@@ -108,7 +112,7 @@ def batched_events(events: Iterable[NormalizedEvent], *, batch_size: int = 500) 
     """Yield ordered event batches for large result sets."""
 
     if batch_size <= 0:
-        raise ValueError('batch_size must be greater than zero')
+        raise ValueError("batch_size must be greater than zero")
     iterator = iter(sorted(events, key=lambda event: event.timestamp))
     while True:
         batch = list(islice(iterator, batch_size))
@@ -133,6 +137,6 @@ def deduplicate_events(events: Iterable[NormalizedEvent]) -> list[NormalizedEven
 
 def _validate_pagination(*, page: int, page_size: int) -> None:
     if page <= 0:
-        raise ValueError('page must be greater than zero')
+        raise ValueError("page must be greater than zero")
     if page_size <= 0:
-        raise ValueError('page_size must be greater than zero')
+        raise ValueError("page_size must be greater than zero")

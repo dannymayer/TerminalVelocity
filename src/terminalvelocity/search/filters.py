@@ -18,7 +18,13 @@ def parse_time_expression(expression: str, now: datetime | None = None) -> datet
     if match:
         amount = int(match.group("amount"))
         unit = match.group("unit").lower()
-        delta = {"s": timedelta(seconds=amount), "m": timedelta(minutes=amount), "h": timedelta(hours=amount), "d": timedelta(days=amount), "w": timedelta(weeks=amount)}[unit]
+        delta = {
+            "s": timedelta(seconds=amount),
+            "m": timedelta(minutes=amount),
+            "h": timedelta(hours=amount),
+            "d": timedelta(days=amount),
+            "w": timedelta(weeks=amount),
+        }[unit]
         return now - delta
     if value.lower() == "now":
         return now
@@ -46,11 +52,15 @@ def matches_event(event: NormalizedEvent, query: SearchQuery, now: datetime | No
     return True
 
 
-def filter_events(events: Iterable[NormalizedEvent], query: SearchQuery, now: datetime | None = None) -> list[NormalizedEvent]:
+def filter_events(
+    events: Iterable[NormalizedEvent], query: SearchQuery, now: datetime | None = None
+) -> list[NormalizedEvent]:
     return [event for event in events if matches_event(event, query, now=now)]
 
 
-def sort_events(events: Iterable[NormalizedEvent], sort_by: str = "timestamp", descending: bool | None = None) -> list[NormalizedEvent]:
+def sort_events(
+    events: Iterable[NormalizedEvent], sort_by: str = "timestamp", descending: bool | None = None
+) -> list[NormalizedEvent]:
     descending = descending if descending is not None else sort_by in {"timestamp", "severity"}
     return sorted(events, key=lambda event: _sort_key(event, sort_by), reverse=descending)
 

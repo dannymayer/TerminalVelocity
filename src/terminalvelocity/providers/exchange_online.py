@@ -62,7 +62,9 @@ class ExchangeOnlineProvider(AuditLogQueryProvider):
             (
                 timestamp
                 for timestamp in (
-                    self.ensure_utc(event.get("createdDateTime") or event.get("activityDateTime") or event.get("deliveredDateTime"))
+                    self.ensure_utc(
+                        event.get("createdDateTime") or event.get("activityDateTime") or event.get("deliveredDateTime")
+                    )
                     for event in combined
                 )
                 if timestamp is not None
@@ -83,7 +85,8 @@ class ExchangeOnlineProvider(AuditLogQueryProvider):
             target = subject or sender
             status = extract_first(event, "status", "verdict")
             normalized = NormalizedEvent(
-                timestamp=extract_first(event, "deliveredDateTime", "receivedDateTime") or datetime.utcnow().isoformat(),
+                timestamp=extract_first(event, "deliveredDateTime", "receivedDateTime")
+                or datetime.utcnow().isoformat(),
                 provider=self.provider_name,
                 service=self.service_name,
                 tenant_id=self.tenant_id,

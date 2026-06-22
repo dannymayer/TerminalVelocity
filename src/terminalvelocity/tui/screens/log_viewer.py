@@ -64,6 +64,7 @@ class LogViewerScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         from textual.containers import Vertical
+
         with Vertical(id="log-dialog"):
             yield Static("Application Log", id="log-title")
             yield RichLog(id="log-output", highlight=True, markup=False, wrap=True)
@@ -86,7 +87,11 @@ class LogViewerScreen(ModalScreen[None]):
         if self._log_file is None or not self._log_file.exists():
             label = self._log_path_label()
             title_widget.update(f"Application Log — {label}")
-            log_widget.write("[dim]No log entries yet.[/dim]" if self._log_file else "[dim]Log file not configured. Pass --log-file or set log_file in config.[/dim]")
+            log_widget.write(
+                "[dim]No log entries yet.[/dim]"
+                if self._log_file
+                else "[dim]Log file not configured. Pass --log-file or set log_file in config.[/dim]"
+            )
             return
 
         try:
@@ -97,10 +102,7 @@ class LogViewerScreen(ModalScreen[None]):
             return
 
         tail = lines[-self._TAIL_LINES :]
-        title_widget.update(
-            f"Application Log — {self._log_file.name}"
-            f" ({len(lines)} line(s), showing last {len(tail)})"
-        )
+        title_widget.update(f"Application Log — {self._log_file.name} ({len(lines)} line(s), showing last {len(tail)})")
 
         for line in tail:
             log_widget.write(_format_log_line(line))

@@ -113,7 +113,9 @@ class AdvancedHuntingProvider(BaseProviderAdapter):
         # Validate by running a lightweight schema probe query
         await self._get_access_token(self.provider_scope)
 
-    async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
+    async def fetch(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)
         start_str = isoformat_z(start)
         end_str = isoformat_z(end)
@@ -137,13 +139,17 @@ class AdvancedHuntingProvider(BaseProviderAdapter):
 
         self.cache_raw_payloads(raw_events)
         events = [self.normalize(item) for item in raw_events]
-        last_event_time = max((event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC))
-        await self.checkpoint(ProviderCheckpoint(
-            provider=self.provider_name,
-            cursor=isoformat_z(end),
-            last_event_time=last_event_time,
-            metadata={"row_count": len(raw_events), "tables": [q[0] for q in self.queries]},
-        ))
+        last_event_time = max(
+            (event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC)
+        )
+        await self.checkpoint(
+            ProviderCheckpoint(
+                provider=self.provider_name,
+                cursor=isoformat_z(end),
+                last_event_time=last_event_time,
+                metadata={"row_count": len(raw_events), "tables": [q[0] for q in self.queries]},
+            )
+        )
         return events
 
     def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:

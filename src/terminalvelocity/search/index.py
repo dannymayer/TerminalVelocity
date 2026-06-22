@@ -13,7 +13,12 @@ from terminalvelocity.search.parser import FIELD_NAMES, SearchQuery, parse_query
 
 
 class IndexManager:
-    def __init__(self, database_path: str | Path = ":memory:", archive_dir: str | Path = "archives", hot_window: timedelta = timedelta(days=1)) -> None:
+    def __init__(
+        self,
+        database_path: str | Path = ":memory:",
+        archive_dir: str | Path = "archives",
+        hot_window: timedelta = timedelta(days=1),
+    ) -> None:
         self.engine = SearchEngine(database_path)
         self.archive_dir = Path(archive_dir)
         self.archive_dir.mkdir(parents=True, exist_ok=True)
@@ -36,17 +41,24 @@ class IndexManager:
         return count
 
     def update_checkpoint(self, provider: str, checkpoint: str) -> None:
-        self.engine.connection.execute("INSERT INTO ingestion_state(provider, checkpoint, updated_at) VALUES (?, ?, ?) ON CONFLICT(provider) DO UPDATE SET checkpoint = excluded.checkpoint, updated_at = excluded.updated_at", (provider, checkpoint, datetime.now(UTC).isoformat()))
+        self.engine.connection.execute(
+            "INSERT INTO ingestion_state(provider, checkpoint, updated_at) VALUES (?, ?, ?) ON CONFLICT(provider) DO UPDATE SET checkpoint = excluded.checkpoint, updated_at = excluded.updated_at",
+            (provider, checkpoint, datetime.now(UTC).isoformat()),
+        )
         self.engine.connection.commit()
 
     def get_checkpoint(self, provider: str) -> str | None:
-        row = self.engine.connection.execute("SELECT checkpoint FROM ingestion_state WHERE provider = ?", (provider,)).fetchone()
+        row = self.engine.connection.execute(
+            "SELECT checkpoint FROM ingestion_state WHERE provider = ?", (provider,)
+        ).fetchone()
         return row[0] if row else None
 
     def archive_expired_events(self, now: datetime | None = None) -> str | None:
         now = now or datetime.now(UTC)
         cutoff = now - self.hot_window
-        rows = self.engine.connection.execute("SELECT * FROM events WHERE archived = 0 AND timestamp < ? ORDER BY timestamp ASC", (cutoff.isoformat(),)).fetchall()
+        rows = self.engine.connection.execute(
+            "SELECT * FROM events WHERE archived = 0 AND timestamp < ? ORDER BY timestamp ASC", (cutoff.isoformat(),)
+        ).fetchall()
         if not rows:
             return None
         archive_id = f"archive-{now.strftime('%Y%m%d%H%M%S')}"
@@ -54,8 +66,31 @@ class IndexManager:
         with gzip.open(archive_path, "wt", encoding="utf-8") as handle:
             for row in rows:
                 handle.write(json.dumps(dict(row), sort_keys=True) + "\n")
-        self.engine.connection.execute("INSERT INTO archives(archive_id, path, created_at, event_count, min_timestamp, max_timestamp) VALUES (?, ?, ?, ?, ?, ?)", (archive_id, str(archive_path), now.isoformat(), len(rows), rows[0]["timestamp"], rows[-1]["timestamp"]))
-        self.engine.connection.executemany("INSERT OR REPLACE INTO archived_event_metadata(event_id, archive_id, timestamp, provider, service, tenant_id, actor, action, target, result, severity, correlation_id, request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [(row["event_id"], archive_id, row["timestamp"], row["provider"], row["service"], row["tenant_id"], row["actor"], row["action"], row["target"], row["result"], row["severity"], row["correlation_id"], row["request_id"]) for row in rows])
+        self.engine.connection.execute(
+            "INSERT INTO archives(archive_id, path, created_at, event_count, min_timestamp, max_timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+            (archive_id, str(archive_path), now.isoformat(), len(rows), rows[0]["timestamp"], rows[-1]["timestamp"]),
+        )
+        self.engine.connection.executemany(
+            "INSERT OR REPLACE INTO archived_event_metadata(event_id, archive_id, timestamp, provider, service, tenant_id, actor, action, target, result, severity, correlation_id, request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row["event_id"],
+                    archive_id,
+                    row["timestamp"],
+                    row["provider"],
+                    row["service"],
+                    row["tenant_id"],
+                    row["actor"],
+                    row["action"],
+                    row["target"],
+                    row["result"],
+                    row["severity"],
+                    row["correlation_id"],
+                    row["request_id"],
+                )
+                for row in rows
+            ],
+        )
         self.engine.delete_events([row["event_id"] for row in rows])
         self.engine.connection.commit()
         return str(archive_path)

@@ -81,11 +81,13 @@ class AppConfig(BaseModel):
         candidates: list[Path] = []
         if path:
             candidates.append(Path(path))
-        candidates.extend([
-            Path("config/terminalvelocity.yaml"),
-            Path("terminalvelocity.yaml"),
-            Path.home() / ".terminalvelocity" / "config.yaml",
-        ])
+        candidates.extend(
+            [
+                Path("config/terminalvelocity.yaml"),
+                Path("terminalvelocity.yaml"),
+                Path.home() / ".terminalvelocity" / "config.yaml",
+            ]
+        )
         cfg: AppConfig | None = None
         for candidate in candidates:
             if candidate.exists():

@@ -15,17 +15,22 @@ class UnifiedAuditLogProvider(BaseProviderAdapter):
     provider_name = "unified_audit_log"
     provider_scope = "https://manage.office.com/.default"
 
-    def __init__(self, *, content_types: Sequence[str] | None = None, auto_start_subscriptions: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self, *, content_types: Sequence[str] | None = None, auto_start_subscriptions: bool = False, **kwargs: Any
+    ) -> None:
         super().__init__(**kwargs)
-        self.content_types = tuple(content_types or (
-            "Audit.AzureActiveDirectory",
-            "Audit.Exchange",
-            "Audit.General",
-            "Audit.SharePoint",
-            "DLP.All",
-            "Audit.PowerBI",
-            "MicrosoftForms",
-        ))
+        self.content_types = tuple(
+            content_types
+            or (
+                "Audit.AzureActiveDirectory",
+                "Audit.Exchange",
+                "Audit.General",
+                "Audit.SharePoint",
+                "DLP.All",
+                "Audit.PowerBI",
+                "MicrosoftForms",
+            )
+        )
         self.auto_start_subscriptions = auto_start_subscriptions
         self.connection_test_url = self._management_url("subscriptions/list")
 
@@ -36,17 +41,32 @@ class UnifiedAuditLogProvider(BaseProviderAdapter):
             for content_type in self.content_types:
                 if content_type not in active_types:
                     LOGGER.info("Starting missing UAL subscription for %s", content_type)
-                    await self._request("POST", self._management_url("subscriptions/start"), scope=self.provider_scope, params={"contentType": content_type})
+                    await self._request(
+                        "POST",
+                        self._management_url("subscriptions/start"),
+                        scope=self.provider_scope,
+                        params={"contentType": content_type},
+                    )
         LOGGER.info("Connected to %s", self.provider_name)
 
-    async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
+    async def fetch(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)
         existing_markers = checkpoint.metadata.get("content_markers", {})
         next_markers = dict(existing_markers)
         events: list[NormalizedEvent] = []
         max_time = checkpoint.last_event_time
         for content_type in self.content_types:
-            descriptors = await self._request_json("GET", self._management_url("subscriptions/content"), scope=self.provider_scope, params={"contentType": content_type, "startTime": isoformat_z(start), "endTime": isoformat_z(end)}) or []
+            descriptors = (
+                await self._request_json(
+                    "GET",
+                    self._management_url("subscriptions/content"),
+                    scope=self.provider_scope,
+                    params={"contentType": content_type, "startTime": isoformat_z(start), "endTime": isoformat_z(end)},
+                )
+                or []
+            )
             descriptor_ids = [item.get("contentId") or item.get("contentUri") for item in descriptors]
             last_marker = existing_markers.get(content_type)
             process_new = last_marker is None or last_marker not in descriptor_ids
@@ -66,7 +86,14 @@ class UnifiedAuditLogProvider(BaseProviderAdapter):
                         max_time = event.timestamp
                 if content_id:
                     next_markers[content_type] = content_id
-        await self.checkpoint(ProviderCheckpoint(provider=self.provider_name, cursor=isoformat_z(end), last_event_time=max_time or end.astimezone(UTC), metadata={"content_markers": next_markers}))
+        await self.checkpoint(
+            ProviderCheckpoint(
+                provider=self.provider_name,
+                cursor=isoformat_z(end),
+                last_event_time=max_time or end.astimezone(UTC),
+                metadata={"content_markers": next_markers},
+            )
+        )
         return events
 
     def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
@@ -74,9 +101,16 @@ class UnifiedAuditLogProvider(BaseProviderAdapter):
         operation = str(payload.get("Operation") or payload.get("Activity") or "unknown")
 
         # DLP policy match events
-        if workload == "SecurityComplianceCenter" or payload.get("RecordType") in {11, "DLP"} or "DlpSharePointClassificationInfo" in payload or "PolicyDetails" in payload:
+        if (
+            workload == "SecurityComplianceCenter"
+            or payload.get("RecordType") in {11, "DLP"}
+            or "DlpSharePointClassificationInfo" in payload
+            or "PolicyDetails" in payload
+        ):
             policy_details = payload.get("PolicyDetails") or [{}]
-            policy_name = (policy_details[0] if isinstance(policy_details, list) and policy_details else {}).get("PolicyName") or operation
+            policy_name = (policy_details[0] if isinstance(policy_details, list) and policy_details else {}).get(
+                "PolicyName"
+            ) or operation
             sensitive_types = payload.get("SensitiveInfoTypeData") or payload.get("ClassificationRuleDetails") or []
             target = payload.get("ObjectId") or payload.get("ItemName") or payload.get("SiteUrl")
             return NormalizedEvent(
@@ -87,7 +121,9 @@ class UnifiedAuditLogProvider(BaseProviderAdapter):
                 actor=payload.get("UserId") or payload.get("UserKey"),
                 action=policy_name,
                 target=target,
-                result=map_result(payload.get("ResultStatus") or payload.get("EnforcementMode") or payload.get("Action")),
+                result=map_result(
+                    payload.get("ResultStatus") or payload.get("EnforcementMode") or payload.get("Action")
+                ),
                 severity="high" if sensitive_types else None,
                 correlation_id=payload.get("CorrelationId"),
                 request_id=payload.get("Id") or payload.get("RequestId"),

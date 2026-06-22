@@ -13,7 +13,7 @@ from terminalvelocity.models import NormalizedEvent
 class HighlightRule(BaseModel):
     """A configurable rule that highlights or alerts on matching events."""
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
 
     name: str
     match: dict[str, Any] = Field(default_factory=dict)
@@ -64,11 +64,11 @@ class HighlightRuleEngine:
     def from_path(cls, path: str | Path) -> HighlightRuleEngine:
         """Create a rule engine from a YAML file on disk."""
 
-        return cls.from_yaml(Path(path).read_text(encoding='utf-8'))
+        return cls.from_yaml(Path(path).read_text(encoding="utf-8"))
 
     @classmethod
     def _from_mapping(cls, data: Mapping[str, Any]) -> HighlightRuleEngine:
-        rules = [HighlightRule.model_validate(item) for item in data.get('rules', [])]
+        rules = [HighlightRule.model_validate(item) for item in data.get("rules", [])]
         return cls(rules)
 
     def evaluate(self, event: NormalizedEvent) -> list[HighlightMatch]:

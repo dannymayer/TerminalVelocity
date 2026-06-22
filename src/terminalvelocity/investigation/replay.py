@@ -33,14 +33,14 @@ class IngestionSession:
         """Convert the session into a JSON-serializable dictionary."""
 
         return {
-            'session_id': self.session_id,
-            'started_at': self.started_at.isoformat(),
-            'ended_at': self.ended_at.isoformat() if self.ended_at else None,
-            'metadata': self.metadata,
-            'events': [
+            "session_id": self.session_id,
+            "started_at": self.started_at.isoformat(),
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "metadata": self.metadata,
+            "events": [
                 {
-                    'offset_seconds': item.offset_seconds,
-                    'event': item.event.model_dump(mode='json'),
+                    "offset_seconds": item.offset_seconds,
+                    "event": item.event.model_dump(mode="json"),
                 }
                 for item in self.events
             ],
@@ -51,16 +51,16 @@ class IngestionSession:
         """Reconstruct a session from serialized data."""
 
         return cls(
-            session_id=payload['session_id'],
-            started_at=_parse_datetime(payload['started_at']),
-            ended_at=_parse_datetime(payload['ended_at']) if payload.get('ended_at') else None,
-            metadata=dict(payload.get('metadata', {})),
+            session_id=payload["session_id"],
+            started_at=_parse_datetime(payload["started_at"]),
+            ended_at=_parse_datetime(payload["ended_at"]) if payload.get("ended_at") else None,
+            metadata=dict(payload.get("metadata", {})),
             events=[
                 RecordedEvent(
-                    offset_seconds=float(item['offset_seconds']),
-                    event=NormalizedEvent.model_validate(item['event']),
+                    offset_seconds=float(item["offset_seconds"]),
+                    event=NormalizedEvent.model_validate(item["event"]),
                 )
-                for item in payload.get('events', [])
+                for item in payload.get("events", [])
             ],
         )
 
@@ -117,13 +117,13 @@ class SessionRecorder:
         """Persist a session as JSON."""
 
         destination_path = Path(destination)
-        destination_path.write_text(json.dumps(session.to_dict(), indent=2, sort_keys=True), encoding='utf-8')
+        destination_path.write_text(json.dumps(session.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
         return destination_path
 
     def load(self, source: str | Path) -> IngestionSession:
         """Load a previously recorded session."""
 
-        return IngestionSession.from_dict(json.loads(Path(source).read_text(encoding='utf-8')))
+        return IngestionSession.from_dict(json.loads(Path(source).read_text(encoding="utf-8")))
 
 
 class SessionReplayer:
@@ -133,7 +133,7 @@ class SessionReplayer:
         """Return scheduled replay frames for a session."""
 
         if speed <= 0:
-            raise ValueError('speed must be greater than zero')
+            raise ValueError("speed must be greater than zero")
         frames: list[ReplayFrame] = []
         previous_offset = 0.0
         for item in sorted(session.events, key=lambda recorded: recorded.offset_seconds):
@@ -151,4 +151,4 @@ class SessionReplayer:
 
 
 def _parse_datetime(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace('Z', '+00:00')).astimezone(UTC)
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)

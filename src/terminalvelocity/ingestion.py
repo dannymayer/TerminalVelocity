@@ -80,12 +80,16 @@ def ingest_file(
 
     if provider_override or service_override:
         events = [
-            event.model_copy(update={
-                k: v for k, v in {
-                    "provider": provider_override,
-                    "service": service_override,
-                }.items() if v
-            })
+            event.model_copy(
+                update={
+                    k: v
+                    for k, v in {
+                        "provider": provider_override,
+                        "service": service_override,
+                    }.items()
+                    if v
+                }
+            )
             for event in events
         ]
     return events
@@ -94,6 +98,7 @@ def ingest_file(
 # ---------------------------------------------------------------------------
 # Internal format parsers
 # ---------------------------------------------------------------------------
+
 
 def _ingest_jsonl(path: Path, *, field_mappings: dict[str, str] | None = None) -> list[NormalizedEvent]:
     events: list[NormalizedEvent] = []
@@ -158,14 +163,18 @@ def _parse_payload(
     now = datetime.now(UTC).isoformat()
     return NormalizedEvent(
         timestamp=payload.get("timestamp")
-            or payload.get("time")
-            or payload.get("createdDateTime")
-            or payload.get("eventTimestamp")
-            or now,
+        or payload.get("time")
+        or payload.get("createdDateTime")
+        or payload.get("eventTimestamp")
+        or now,
         provider=payload.get("provider") or payload.get("source") or "imported",
         service=payload.get("service") or payload.get("category") or "imported",
         actor=payload.get("actor") or payload.get("user") or payload.get("userPrincipalName") or payload.get("caller"),
-        action=payload.get("action") or payload.get("operation") or payload.get("operationName") or payload.get("activityDisplayName") or "unknown",
+        action=payload.get("action")
+        or payload.get("operation")
+        or payload.get("operationName")
+        or payload.get("activityDisplayName")
+        or "unknown",
         target=payload.get("target") or payload.get("resource") or payload.get("objectId") or payload.get("resourceId"),
         result=payload.get("result") or payload.get("status"),
         severity=payload.get("severity") or payload.get("level"),

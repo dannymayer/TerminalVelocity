@@ -34,39 +34,51 @@ class SecureScoreProvider(BaseProviderAdapter):
     connection_test_url = "https://graph.microsoft.com/v1.0/security/secureScores"
     connection_test_params = {"$top": 1}  # noqa: RUF012
 
-    async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
+    async def fetch(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)
 
-        score_snapshots = [item async for item in self._iterate_collection(
-            "https://graph.microsoft.com/v1.0/security/secureScores",
-            scope=self.provider_scope,
-            params={
-                "$filter": f"createdDateTime ge {isoformat_z(start)} and createdDateTime le {isoformat_z(end)}",
-                "$top": 90,
-            },
-        )]
+        score_snapshots = [
+            item
+            async for item in self._iterate_collection(
+                "https://graph.microsoft.com/v1.0/security/secureScores",
+                scope=self.provider_scope,
+                params={
+                    "$filter": f"createdDateTime ge {isoformat_z(start)} and createdDateTime le {isoformat_z(end)}",
+                    "$top": 90,
+                },
+            )
+        ]
 
-        control_profiles = [item async for item in self._iterate_collection(
-            "https://graph.microsoft.com/v1.0/security/secureScoreControlProfiles",
-            scope=self.provider_scope,
-            params={"$top": 200},
-        )]
+        control_profiles = [
+            item
+            async for item in self._iterate_collection(
+                "https://graph.microsoft.com/v1.0/security/secureScoreControlProfiles",
+                scope=self.provider_scope,
+                params={"$top": 200},
+            )
+        ]
         for item in control_profiles:
             item["_tv_source"] = "control_profile"
 
         raw_events = score_snapshots + control_profiles
         self.cache_raw_payloads(raw_events)
         events = [self.normalize(item) for item in raw_events]
-        last_event_time = max((event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC))
-        await self.checkpoint(ProviderCheckpoint(
-            provider=self.provider_name,
-            cursor=isoformat_z(end),
-            last_event_time=last_event_time,
-            metadata={
-                "snapshot_count": len(score_snapshots),
-                "control_profile_count": len(control_profiles),
-            },
-        ))
+        last_event_time = max(
+            (event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC)
+        )
+        await self.checkpoint(
+            ProviderCheckpoint(
+                provider=self.provider_name,
+                cursor=isoformat_z(end),
+                last_event_time=last_event_time,
+                metadata={
+                    "snapshot_count": len(score_snapshots),
+                    "control_profile_count": len(control_profiles),
+                },
+            )
+        )
         return events
 
     def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
@@ -80,7 +92,9 @@ class SecureScoreProvider(BaseProviderAdapter):
                 actor=None,
                 action="SecureScoreControlProfile",
                 target=payload.get("title") or payload.get("id"),
-                result="success" if payload.get("implementationStatus") in {"implemented", "thirdParty", "customerManagedOperations"} else None,
+                result="success"
+                if payload.get("implementationStatus") in {"implemented", "thirdParty", "customerManagedOperations"}
+                else None,
                 severity=payload.get("rank") and "info",
                 correlation_id=payload.get("id"),
                 request_id=payload.get("id"),

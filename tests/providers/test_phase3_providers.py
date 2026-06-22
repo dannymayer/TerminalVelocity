@@ -15,8 +15,12 @@ from terminalvelocity.providers.teams import TeamsProvider
 
 class FakeGraphClient:
     def __init__(self, *, get_responses=None, post_responses=None, collection_responses=None) -> None:
-        self.get_responses = {key: list(value) if isinstance(value, list) else [value] for key, value in (get_responses or {}).items()}
-        self.post_responses = {key: list(value) if isinstance(value, list) else [value] for key, value in (post_responses or {}).items()}
+        self.get_responses = {
+            key: list(value) if isinstance(value, list) else [value] for key, value in (get_responses or {}).items()
+        }
+        self.post_responses = {
+            key: list(value) if isinstance(value, list) else [value] for key, value in (post_responses or {}).items()
+        }
         self.collection_responses = collection_responses or {}
         self.deleted_paths: list[str] = []
         self.get_calls: list[tuple[str, dict | None]] = []
@@ -149,7 +153,9 @@ class Phase3ProviderTests(unittest.TestCase):
         sp_provider = SharePointOneDriveProvider(tenant_id="tenant-1", access_token="token", graph_client=graph)
         teams_provider = TeamsProvider(tenant_id="tenant-1", access_token="token", graph_client=graph)
         sp_event = sp_provider.normalize(sp_provider.fetch(since=self.now - timedelta(hours=1), until=self.now)[0])
-        teams_event = teams_provider.normalize(teams_provider.fetch(since=self.now - timedelta(hours=1), until=self.now)[0])
+        teams_event = teams_provider.normalize(
+            teams_provider.fetch(since=self.now - timedelta(hours=1), until=self.now)[0]
+        )
         self.assertEqual(sp_event.target, "Shared Documents/report.xlsx")
         self.assertEqual(teams_event.target, "IR/General")
         self.assertEqual(graph.post_calls[0][1]["serviceFilters"], ["SharePoint", "OneDrive"])
@@ -235,7 +241,9 @@ class Phase3ProviderTests(unittest.TestCase):
                 "auditData": {},
             }
         )
-        event_b = event_a.model_copy(update={"provider": "teams", "service": "microsoft-teams", "timestamp": self.now - timedelta(minutes=1)})
+        event_b = event_a.model_copy(
+            update={"provider": "teams", "service": "microsoft-teams", "timestamp": self.now - timedelta(minutes=1)}
+        )
         enriched = CrossProviderEnricher(time_window=timedelta(minutes=5)).enrich([event_a, event_b])
         self.assertEqual(enriched[0].related_provider_count, 1)
         self.assertEqual(normalize_result("Blocked"), "failure")

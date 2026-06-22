@@ -89,12 +89,12 @@ class TagScreen(ModalScreen[None]):
             self.dismiss(None)
             return
         if raw.startswith("remove:"):
-            tag = raw[len("remove:"):].strip()
+            tag = raw[len("remove:") :].strip()
             if tag:
                 self._engine.untag_event(self._event_id, tag)
         else:
             # Strip optional "add:" prefix
-            tag = raw[len("add:"):].strip() if raw.startswith("add:") else raw.strip()
+            tag = raw[len("add:") :].strip() if raw.startswith("add:") else raw.strip()
             if tag:
                 self._engine.tag_event(self._event_id, tag)
         self.query_one("#tag-input", Input).value = ""

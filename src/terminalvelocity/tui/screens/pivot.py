@@ -54,6 +54,7 @@ class PivotScreen(ModalScreen[NormalizedEvent | None]):
 
     def compose(self) -> ComposeResult:
         from textual.containers import Vertical
+
         with Vertical(id="pivot-dialog"):
             yield Static("Pivot: Related Events", id="pivot-title")
             yield Static("", id="pivot-subtitle")
@@ -67,8 +68,7 @@ class PivotScreen(ModalScreen[NormalizedEvent | None]):
         actor = self._seed.actor or "—"
         target = self._seed.target or "—"
         self.query_one("#pivot-subtitle", Static).update(
-            f"Seed: {self._seed.action} | actor={actor} | target={target} | "
-            f"{len(self._pivot_events)} related event(s)"
+            f"Seed: {self._seed.action} | actor={actor} | target={target} | {len(self._pivot_events)} related event(s)"
         )
 
         table = self.query_one(DataTable)

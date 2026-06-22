@@ -29,7 +29,9 @@ class QueryBar(Widget):
     def compose(self) -> ComposeResult:
         yield Static("Query + scope", id="query-title")
         with Horizontal(id="query-controls"):
-            yield Input(placeholder="Search events or field:value  tag:label  show:archived  sort:severity", id="query-input")
+            yield Input(
+                placeholder="Search events or field:value  tag:label  show:archived  sort:severity", id="query-input"
+            )
             yield Select(TIME_SCOPE_OPTIONS, value="24h", allow_blank=False, id="time-scope")
         yield Static("Ready", id="query-status")
 

@@ -72,6 +72,7 @@ class AppConfigYAMLTests(unittest.TestCase):
 class AppConfigEnvVarTests(unittest.TestCase):
     def test_env_vars_add_tenant_when_none_configured(self) -> None:
         import os
+
         env = {
             "TERMINALVELOCITY_TENANT_ID": "env-tenant",
             "TERMINALVELOCITY_CLIENT_ID": "env-client",
@@ -88,6 +89,7 @@ class AppConfigEnvVarTests(unittest.TestCase):
         import os
         import tempfile
         import textwrap
+
         yaml_content = textwrap.dedent("""\
             tenants:
               - tenant_id: "env-tenant"
@@ -113,6 +115,7 @@ class AppConfigEnvVarTests(unittest.TestCase):
 
     def test_partial_env_vars_do_not_add_tenant(self) -> None:
         import os
+
         # Only two of three vars set — no tenant should be added
         env = {
             "TERMINALVELOCITY_TENANT_ID": "env-tenant",

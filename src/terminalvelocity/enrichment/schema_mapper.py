@@ -87,10 +87,7 @@ def normalize_actor(value: Any) -> str | None:
         return None
     if isinstance(value, dict):
         return (
-            value.get("userPrincipalName")
-            or value.get("emailAddress")
-            or value.get("displayName")
-            or value.get("id")
+            value.get("userPrincipalName") or value.get("emailAddress") or value.get("displayName") or value.get("id")
         )
     return str(value)
 
@@ -101,12 +98,7 @@ def normalize_target(value: Any) -> str | None:
     if value in (None, ""):
         return None
     if isinstance(value, dict):
-        return (
-            value.get("displayName")
-            or value.get("emailAddress")
-            or value.get("id")
-            or value.get("name")
-        )
+        return value.get("displayName") or value.get("emailAddress") or value.get("id") or value.get("name")
     if isinstance(value, list):
         return ", ".join(str(item) for item in value if item not in (None, "")) or None
     return str(value)

@@ -10,7 +10,21 @@ from terminalvelocity.models import NormalizedEvent
 from terminalvelocity.search.filters import resolve_time_range
 from terminalvelocity.search.parser import FIELD_NAMES, SearchQuery, parse_query
 
-COLUMNS: Sequence[str] = ("event_id", "timestamp", "provider", "service", "tenant_id", "actor", "action", "target", "result", "severity", "correlation_id", "request_id", "raw_json")
+COLUMNS: Sequence[str] = (
+    "event_id",
+    "timestamp",
+    "provider",
+    "service",
+    "tenant_id",
+    "actor",
+    "action",
+    "target",
+    "result",
+    "severity",
+    "correlation_id",
+    "request_id",
+    "raw_json",
+)
 
 
 class SearchEngine:
@@ -68,9 +82,27 @@ class SearchEngine:
                 self.connection.execute("DELETE FROM events_fts WHERE event_id = ?", (event_id,))
                 self.connection.execute(
                     "INSERT OR REPLACE INTO events (event_id, timestamp, provider, service, tenant_id, actor, action, target, result, severity, correlation_id, request_id, raw_json, indexed_at, archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
-                    (event_id, event.timestamp.isoformat(), event.provider, event.service, event.tenant_id, event.actor, event.action, event.target, event.result, event.severity, event.correlation_id, event.request_id, event.raw_json(), indexed_at),
+                    (
+                        event_id,
+                        event.timestamp.isoformat(),
+                        event.provider,
+                        event.service,
+                        event.tenant_id,
+                        event.actor,
+                        event.action,
+                        event.target,
+                        event.result,
+                        event.severity,
+                        event.correlation_id,
+                        event.request_id,
+                        event.raw_json(),
+                        indexed_at,
+                    ),
                 )
-                self.connection.execute("INSERT INTO events_fts(event_id, search_text) VALUES (?, ?)", (event_id, self._build_search_text(event)))
+                self.connection.execute(
+                    "INSERT INTO events_fts(event_id, search_text) VALUES (?, ?)",
+                    (event_id, self._build_search_text(event)),
+                )
                 count += 1
         return count
 
@@ -123,7 +155,9 @@ class SearchEngine:
         rows = self.connection.execute("SELECT DISTINCT tag FROM event_tags ORDER BY tag ASC").fetchall()
         return [row["tag"] for row in rows]
 
-    def search(self, query: SearchQuery | str, *, limit: int = 100, include_archived: bool = False) -> list[NormalizedEvent]:
+    def search(
+        self, query: SearchQuery | str, *, limit: int = 100, include_archived: bool = False
+    ) -> list[NormalizedEvent]:
         if isinstance(query, str):
             query = parse_query(query)
         # Respect include_archived from the query object OR the parameter
@@ -161,21 +195,61 @@ class SearchEngine:
         # dedicated helper method.  The current single-line ternary chain is
         # hard to follow and extend (e.g. adding a new sort key requires
         # modifying a deeply nested expression).
-        order = "LOWER(COALESCE(e.provider, ''))" if query.sort_by == "provider" else ("CASE LOWER(COALESCE(e.severity, '')) WHEN 'critical' THEN 5 WHEN 'high' THEN 4 WHEN 'medium' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 WHEN 'informational' THEN 0 WHEN 'info' THEN 0 ELSE -1 END" if query.sort_by == "severity" else "e.timestamp")
+        order = (
+            "LOWER(COALESCE(e.provider, ''))"
+            if query.sort_by == "provider"
+            else (
+                "CASE LOWER(COALESCE(e.severity, '')) WHEN 'critical' THEN 5 WHEN 'high' THEN 4 WHEN 'medium' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 WHEN 'informational' THEN 0 WHEN 'info' THEN 0 ELSE -1 END"
+                if query.sort_by == "severity"
+                else "e.timestamp"
+            )
+        )
         sql += f" ORDER BY {order} {'DESC' if query.sort_desc else 'ASC'}, e.timestamp DESC LIMIT ?"
         rows = self.connection.execute(sql, [*params, limit]).fetchall()
         # TODO(readability): expand the row-to-NormalizedEvent mapping into a
         # named helper (e.g. _row_to_event) so this line is not 180+ chars and
         # is easier to maintain when the schema changes.
-        return [NormalizedEvent(timestamp=row['timestamp'], provider=row['provider'], service=row['service'], tenant_id=row['tenant_id'], actor=row['actor'], action=row['action'], target=row['target'], result=row['result'], severity=row['severity'], correlation_id=row['correlation_id'], request_id=row['request_id'], raw=json.loads(row['raw_json'])) for row in rows]
+        return [
+            NormalizedEvent(
+                timestamp=row["timestamp"],
+                provider=row["provider"],
+                service=row["service"],
+                tenant_id=row["tenant_id"],
+                actor=row["actor"],
+                action=row["action"],
+                target=row["target"],
+                result=row["result"],
+                severity=row["severity"],
+                correlation_id=row["correlation_id"],
+                request_id=row["request_id"],
+                raw=json.loads(row["raw_json"]),
+            )
+            for row in rows
+        ]
 
     @staticmethod
     def _build_search_text(event: NormalizedEvent) -> str:
         # TODO(readability): extract to a named helper that lists each field
         # explicitly instead of relying on a long positional tuple — easier to
         # extend when the schema gains new searchable fields.
-        return " ".join(part for part in [event.provider, event.service, event.tenant_id, event.actor, event.action, event.target, event.result, event.severity, event.correlation_id, event.request_id, event.raw_json()] if part)
+        return " ".join(
+            part
+            for part in [
+                event.provider,
+                event.service,
+                event.tenant_id,
+                event.actor,
+                event.action,
+                event.target,
+                event.result,
+                event.severity,
+                event.correlation_id,
+                event.request_id,
+                event.raw_json(),
+            ]
+            if part
+        )
 
 
 def _fts_query(terms: Sequence[str]) -> str:
-    return " AND ".join(f'"{term.replace("\"", "\"\"")}"' for term in terms)
+    return " AND ".join(f'"{term.replace('"', '""')}"' for term in terms)

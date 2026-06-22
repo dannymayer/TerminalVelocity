@@ -67,7 +67,12 @@ ACTIONS = {
     "entra": ["sign-in", "token-refresh", "mfa-challenge", "app-consent", "Add app role assignment"],
     "identity_protection": ["impossibleTravel risk detection", "unfamiliarFeatures risk detection", "riskySignIn"],
     "pim": ["Activate Global Administrator", "Deactivate Security Reader", "role-assignment-added"],
-    "defender_xdr": ["Suspicious inbox rule after risky sign-in", "Defender alert · LSASS access", "incident-created", "alert-opened"],
+    "defender_xdr": [
+        "Suspicious inbox rule after risky sign-in",
+        "Defender alert · LSASS access",
+        "incident-created",
+        "alert-opened",
+    ],
     "advanced_hunting": ["PowerShellExecution", "ProcessCreated", "NetworkConnectionEvents", "FileCreated"],
     "defender_cloud_apps": ["Mass download detected", "admin-quarantine", "policy-match"],
     "intune": ["policy-sync", "compliance-check failed", "device-enroll", "script-run"],
@@ -262,6 +267,7 @@ class TerminalVelocityApp(App[None]):
 
     async def _poll_providers(self) -> None:
         from terminalvelocity.providers.registry import registry
+
         tenant_id = os.environ.get("TERMINALVELOCITY_TENANT_ID", "")
         client_id = os.environ.get("TERMINALVELOCITY_CLIENT_ID", "")
         client_secret = os.environ.get("TERMINALVELOCITY_CLIENT_SECRET", "")
@@ -272,9 +278,7 @@ class TerminalVelocityApp(App[None]):
             return
 
         enabled_names = (
-            [p.name for p in self.config.providers if p.enabled]
-            if self.config.providers
-            else list(registry.names())
+            [p.name for p in self.config.providers if p.enabled] if self.config.providers else list(registry.names())
         )
         new_count = 0
         for name in enabled_names:
@@ -351,6 +355,7 @@ class TerminalVelocityApp(App[None]):
 
     def action_show_pivot(self) -> None:
         from terminalvelocity.tui.screens.pivot import PivotScreen
+
         seed = self.query_one(EventTable).current_event()
         if seed is None:
             self.notify("No event selected for pivot", severity="warning")
@@ -364,6 +369,7 @@ class TerminalVelocityApp(App[None]):
 
     def action_show_timeline(self) -> None:
         from terminalvelocity.tui.screens.timeline import TimelineScreen
+
         seed = self.query_one(EventTable).current_event()
         if seed is None:
             self.notify("No event selected for timeline", severity="warning")
@@ -372,10 +378,12 @@ class TerminalVelocityApp(App[None]):
 
     def action_show_anomalies(self) -> None:
         from terminalvelocity.tui.screens.anomaly import AnomalyScreen
+
         self.push_screen(AnomalyScreen(self.filtered_events))
 
     def action_show_saved_queries(self) -> None:
         from terminalvelocity.tui.screens.saved_queries import SavedQueriesScreen
+
         current_query = self.query_one(QueryBar).query
 
         def on_sq_result(result: str | None) -> None:
@@ -390,6 +398,7 @@ class TerminalVelocityApp(App[None]):
 
     def action_tag_event(self) -> None:
         from terminalvelocity.tui.screens.tag import TagScreen
+
         event = self.query_one(EventTable).current_event()
         if event is None:
             self.notify("No event selected for tagging", severity="warning")
@@ -408,6 +417,7 @@ class TerminalVelocityApp(App[None]):
 
     def action_show_logs(self) -> None:
         from terminalvelocity.tui.screens.log_viewer import LogViewerScreen
+
         self.push_screen(LogViewerScreen(self._log_file))
 
     def on_query_bar_filter_changed(self, event: QueryBar.FilterChanged) -> None:
@@ -432,9 +442,7 @@ class TerminalVelocityApp(App[None]):
 
         self._alert_count = 0
         if self._highlight_engine:
-            self._alert_count = sum(
-                1 for e in self.filtered_events if self._highlight_engine.should_alert(e)
-            )
+            self._alert_count = sum(1 for e in self.filtered_events if self._highlight_engine.should_alert(e))
 
         counts = Counter(item.provider for item in self.filtered_events)
         self.query_one(ProviderPanel).update_statuses(
@@ -507,8 +515,17 @@ class TerminalVelocityApp(App[None]):
                 writer = csv.DictWriter(
                     handle,
                     fieldnames=[
-                        "timestamp", "provider", "service", "actor", "action",
-                        "target", "result", "severity", "correlation_id", "request_id", "raw",
+                        "timestamp",
+                        "provider",
+                        "service",
+                        "actor",
+                        "action",
+                        "target",
+                        "result",
+                        "severity",
+                        "correlation_id",
+                        "request_id",
+                        "raw",
                     ],
                     extrasaction="ignore",
                 )
@@ -529,6 +546,7 @@ class TerminalVelocityApp(App[None]):
 # ---------------------------------------------------------------------------
 # Standalone helpers
 # ---------------------------------------------------------------------------
+
 
 def apply_filters_fallback(
     events: list[NormalizedEvent],
@@ -579,10 +597,16 @@ def _design_demo_events(now: datetime) -> list[NormalizedEvent]:
         return now - timedelta(seconds=max(0, ref_sec - event_sec))
 
     def _ev(
-        h: int, m: int, s: int,
-        provider: str, service: str,
-        actor: str, action: str, target: str,
-        result: str, severity: str,
+        h: int,
+        m: int,
+        s: int,
+        provider: str,
+        service: str,
+        actor: str,
+        action: str,
+        target: str,
+        result: str,
+        severity: str,
         corr: str | None = None,
         ip: str = "10.0.0.1",
         risk_flags: list[str] | None = None,
@@ -605,30 +629,335 @@ def _design_demo_events(now: datetime) -> list[NormalizedEvent]:
         )
 
     return [
-        _ev(14,23,39, "defender_xdr","incident","alex@contoso.com","Suspicious inbox rule after risky sign-in","mailbox/alex","failure","critical","INC-4471","185.220.101.42",["admin-op","impossible-travel"]),
-        _ev(14,22,55, "exchange_online","admin","alex@contoso.com","New-InboxRule · forward to external","mailbox/alex","failure","high","INC-4471","185.220.101.42",["rare-action"]),
-        _ev(14,21,10, "entra","signin","alex@contoso.com","Sign-in","Office 365","success","high","INC-4471","185.220.101.42",["impossible-travel"]),
-        _ev(14,20,30, "entra","signin","alex@contoso.com","Sign-in","Office 365","failure","medium","INC-4471","185.220.101.42",["burst-failures"]),
-        _ev(14,19, 5, "identity_protection","risk","alex@contoso.com","impossibleTravel risk detection","—","atrisk","critical","INC-4471","185.220.101.42",["impossible-travel"]),
-        _ev(14,18,40, "pim","role","jamie@contoso.com","Activate Global Administrator","role/Global Admin","success","critical","PIM-228","10.0.4.18",["admin-op"]),
-        _ev(14,17,12, "attack_simulation","sim","lee@contoso.com","CredentialsEntered","sim/Q2-Phish","failure","critical",None,"10.0.2.55"),
-        _ev(14,15,48, "defender_cloud_apps","activity","svc-sync@contoso.com","Mass download detected","OneDrive/Finance","failure","high",None,"52.114.7.9"),
-        _ev(14,14, 3, "advanced_hunting","DeviceEvents","svc-sync@contoso.com","PowerShellExecution","host-db-01","success","medium",None,"10.0.6.21"),
-        _ev(14,12,31, "sharepoint_onedrive","sharing","jamie@contoso.com","AnonymousLinkCreated","site/legal","success","medium",None,"10.0.3.7"),
-        _ev(14,10, 9, "unified_audit_log","DLP","lee@contoso.com","DLPRuleMatch · Credit Card","mail/outbound","failure","high",None,"10.0.2.55"),
-        _ev(14, 8,44, "intune","device","—","compliance-check failed","win11-fleet","failure","medium",None,"10.0.9.1"),
-        _ev(14, 6,20, "teams","admin","soc-automation@contoso.com","ExternalAccessChanged","org/federation","success","medium",None,"10.0.1.5"),
-        _ev(14, 4,55, "entra","audit","jamie@contoso.com","Add app role assignment","sp/Graph","success","low",None,"10.0.4.18"),
-        _ev(14, 2,10, "secure_score","posture","—","SecureScoreSnapshot · -6 vs avg","tenant","failure","high",None,"—"),
-        _ev(14, 0,31, "service_health","incident","—","EX_Advisory · mail delays","Exchange Online","failure","medium",None,"—"),
-        _ev(13,58,12, "entra","signin","svc-sync@contoso.com","Sign-in","Microsoft Graph","success","low",None,"10.0.6.21"),
-        _ev(13,55,40, "intune","device","—","policy-sync","win11-fleet","success","low",None,"10.0.9.1"),
-        _ev(13,53, 2, "exchange_online","trace","lee@contoso.com","MessageTrace · quarantined","mail/inbound","failure","medium",None,"10.0.2.55"),
-        _ev(13,50,19, "defender_xdr","alert","host-db-01","Defender alert · LSASS access","host-db-01","failure","high",None,"10.0.6.21"),
-        _ev(13,47,55, "pim","role","soc-automation@contoso.com","Deactivate Security Reader","role/Sec Reader","success","low",None,"10.0.1.5"),
-        _ev(13,45,11, "sharepoint_onedrive","file","alex@contoso.com","FileDownloaded","site/finance","success","low",None,"10.0.3.9"),
-        _ev(13,42,38, "unified_audit_log","PowerBI","jamie@contoso.com","ExportReport","workspace/exec","success","low",None,"10.0.4.18"),
-        _ev(13,40, 2, "entra","signin","lee@contoso.com","Sign-in","Office 365","success","low",None,"10.0.2.55"),
+        _ev(
+            14,
+            23,
+            39,
+            "defender_xdr",
+            "incident",
+            "alex@contoso.com",
+            "Suspicious inbox rule after risky sign-in",
+            "mailbox/alex",
+            "failure",
+            "critical",
+            "INC-4471",
+            "185.220.101.42",
+            ["admin-op", "impossible-travel"],
+        ),
+        _ev(
+            14,
+            22,
+            55,
+            "exchange_online",
+            "admin",
+            "alex@contoso.com",
+            "New-InboxRule · forward to external",
+            "mailbox/alex",
+            "failure",
+            "high",
+            "INC-4471",
+            "185.220.101.42",
+            ["rare-action"],
+        ),
+        _ev(
+            14,
+            21,
+            10,
+            "entra",
+            "signin",
+            "alex@contoso.com",
+            "Sign-in",
+            "Office 365",
+            "success",
+            "high",
+            "INC-4471",
+            "185.220.101.42",
+            ["impossible-travel"],
+        ),
+        _ev(
+            14,
+            20,
+            30,
+            "entra",
+            "signin",
+            "alex@contoso.com",
+            "Sign-in",
+            "Office 365",
+            "failure",
+            "medium",
+            "INC-4471",
+            "185.220.101.42",
+            ["burst-failures"],
+        ),
+        _ev(
+            14,
+            19,
+            5,
+            "identity_protection",
+            "risk",
+            "alex@contoso.com",
+            "impossibleTravel risk detection",
+            "—",
+            "atrisk",
+            "critical",
+            "INC-4471",
+            "185.220.101.42",
+            ["impossible-travel"],
+        ),
+        _ev(
+            14,
+            18,
+            40,
+            "pim",
+            "role",
+            "jamie@contoso.com",
+            "Activate Global Administrator",
+            "role/Global Admin",
+            "success",
+            "critical",
+            "PIM-228",
+            "10.0.4.18",
+            ["admin-op"],
+        ),
+        _ev(
+            14,
+            17,
+            12,
+            "attack_simulation",
+            "sim",
+            "lee@contoso.com",
+            "CredentialsEntered",
+            "sim/Q2-Phish",
+            "failure",
+            "critical",
+            None,
+            "10.0.2.55",
+        ),
+        _ev(
+            14,
+            15,
+            48,
+            "defender_cloud_apps",
+            "activity",
+            "svc-sync@contoso.com",
+            "Mass download detected",
+            "OneDrive/Finance",
+            "failure",
+            "high",
+            None,
+            "52.114.7.9",
+        ),
+        _ev(
+            14,
+            14,
+            3,
+            "advanced_hunting",
+            "DeviceEvents",
+            "svc-sync@contoso.com",
+            "PowerShellExecution",
+            "host-db-01",
+            "success",
+            "medium",
+            None,
+            "10.0.6.21",
+        ),
+        _ev(
+            14,
+            12,
+            31,
+            "sharepoint_onedrive",
+            "sharing",
+            "jamie@contoso.com",
+            "AnonymousLinkCreated",
+            "site/legal",
+            "success",
+            "medium",
+            None,
+            "10.0.3.7",
+        ),
+        _ev(
+            14,
+            10,
+            9,
+            "unified_audit_log",
+            "DLP",
+            "lee@contoso.com",
+            "DLPRuleMatch · Credit Card",
+            "mail/outbound",
+            "failure",
+            "high",
+            None,
+            "10.0.2.55",
+        ),
+        _ev(
+            14,
+            8,
+            44,
+            "intune",
+            "device",
+            "—",
+            "compliance-check failed",
+            "win11-fleet",
+            "failure",
+            "medium",
+            None,
+            "10.0.9.1",
+        ),
+        _ev(
+            14,
+            6,
+            20,
+            "teams",
+            "admin",
+            "soc-automation@contoso.com",
+            "ExternalAccessChanged",
+            "org/federation",
+            "success",
+            "medium",
+            None,
+            "10.0.1.5",
+        ),
+        _ev(
+            14,
+            4,
+            55,
+            "entra",
+            "audit",
+            "jamie@contoso.com",
+            "Add app role assignment",
+            "sp/Graph",
+            "success",
+            "low",
+            None,
+            "10.0.4.18",
+        ),
+        _ev(
+            14,
+            2,
+            10,
+            "secure_score",
+            "posture",
+            "—",
+            "SecureScoreSnapshot · -6 vs avg",
+            "tenant",
+            "failure",
+            "high",
+            None,
+            "—",
+        ),
+        _ev(
+            14,
+            0,
+            31,
+            "service_health",
+            "incident",
+            "—",
+            "EX_Advisory · mail delays",
+            "Exchange Online",
+            "failure",
+            "medium",
+            None,
+            "—",
+        ),
+        _ev(
+            13,
+            58,
+            12,
+            "entra",
+            "signin",
+            "svc-sync@contoso.com",
+            "Sign-in",
+            "Microsoft Graph",
+            "success",
+            "low",
+            None,
+            "10.0.6.21",
+        ),
+        _ev(13, 55, 40, "intune", "device", "—", "policy-sync", "win11-fleet", "success", "low", None, "10.0.9.1"),
+        _ev(
+            13,
+            53,
+            2,
+            "exchange_online",
+            "trace",
+            "lee@contoso.com",
+            "MessageTrace · quarantined",
+            "mail/inbound",
+            "failure",
+            "medium",
+            None,
+            "10.0.2.55",
+        ),
+        _ev(
+            13,
+            50,
+            19,
+            "defender_xdr",
+            "alert",
+            "host-db-01",
+            "Defender alert · LSASS access",
+            "host-db-01",
+            "failure",
+            "high",
+            None,
+            "10.0.6.21",
+        ),
+        _ev(
+            13,
+            47,
+            55,
+            "pim",
+            "role",
+            "soc-automation@contoso.com",
+            "Deactivate Security Reader",
+            "role/Sec Reader",
+            "success",
+            "low",
+            None,
+            "10.0.1.5",
+        ),
+        _ev(
+            13,
+            45,
+            11,
+            "sharepoint_onedrive",
+            "file",
+            "alex@contoso.com",
+            "FileDownloaded",
+            "site/finance",
+            "success",
+            "low",
+            None,
+            "10.0.3.9",
+        ),
+        _ev(
+            13,
+            42,
+            38,
+            "unified_audit_log",
+            "PowerBI",
+            "jamie@contoso.com",
+            "ExportReport",
+            "workspace/exec",
+            "success",
+            "low",
+            None,
+            "10.0.4.18",
+        ),
+        _ev(
+            13,
+            40,
+            2,
+            "entra",
+            "signin",
+            "lee@contoso.com",
+            "Sign-in",
+            "Office 365",
+            "success",
+            "low",
+            None,
+            "10.0.2.55",
+        ),
     ]
 
 
@@ -663,8 +992,7 @@ def generate_mock_dataset(*, seed: int, count: int) -> tuple[list[NormalizedEven
                 "result": result,
                 "severity": severity,
                 "risk_flags": [
-                    flag for flag in ("impossible-travel", "burst-failures", "admin-op")
-                    if rng.random() > 0.72
+                    flag for flag in ("impossible-travel", "burst-failures", "admin-op") if rng.random() > 0.72
                 ],
             }
             extra.append(
