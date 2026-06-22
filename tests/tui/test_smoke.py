@@ -55,6 +55,7 @@ def test_compare_hours_sets_initial_query() -> None:
 
 def test_demo_mode_used_when_credentials_absent() -> None:
     """App uses mock data when env vars are not set."""
+
     async def run() -> None:
         app = TerminalVelocityApp(seed=1, count=10)
         async with app.run_test(size=(150, 45)) as pilot:
@@ -68,20 +69,16 @@ def test_demo_mode_used_when_credentials_absent() -> None:
 def test_live_mode_used_when_credentials_present() -> None:
     """App calls _poll_providers when live=True and credentials are set."""
     import os
-    from unittest.mock import AsyncMock, patch
 
     async def run() -> None:
-        live_events = generate_mock_events(count=5, seed=99)
-        from terminalvelocity.schema import ProviderStatus
+        generate_mock_events(count=5, seed=99)
         app = TerminalVelocityApp(seed=1, count=10, live=True)
         env_vars = {
             "TERMINALVELOCITY_TENANT_ID": "test-tenant",
             "TERMINALVELOCITY_CLIENT_ID": "test-client",
             "TERMINALVELOCITY_CLIENT_SECRET": "test-secret",
         }
-        with patch.dict(os.environ, env_vars), patch.object(
-            app, "_poll_providers", new=AsyncMock()
-        ) as mock_poll:
+        with patch.dict(os.environ, env_vars), patch.object(app, "_poll_providers", new=AsyncMock()) as mock_poll:
             async with app.run_test(size=(150, 45)) as pilot:
                 await pilot.pause()
                 assert "Live" in app.sub_title
@@ -92,6 +89,7 @@ def test_live_mode_used_when_credentials_present() -> None:
 
 def test_partial_credentials_fall_back_to_demo() -> None:
     """App uses mock data when live flag is not set."""
+
     async def run() -> None:
         app = TerminalVelocityApp(seed=1, count=10)
         async with app.run_test(size=(150, 45)) as pilot:
@@ -105,7 +103,7 @@ def test_partial_credentials_fall_back_to_demo() -> None:
 def test_main_auto_enables_live_when_env_creds_present() -> None:
     """main() auto-enables live mode when all three env credentials are set."""
     import os
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import MagicMock
 
     env_vars = {
         "TERMINALVELOCITY_TENANT_ID": "test-tenant",
@@ -120,8 +118,10 @@ def test_main_auto_enables_live_when_env_creds_present() -> None:
         assert kwargs.get("live") is True, "live should be True when env creds are present"
         return mock_app
 
-    with patch.dict(os.environ, env_vars, clear=False), patch(
-        "terminalvelocity.__main__.TerminalVelocityApp", side_effect=capture_app
+    with (
+        patch.dict(os.environ, env_vars, clear=False),
+        patch("terminalvelocity.__main__.TerminalVelocityApp", side_effect=capture_app),
     ):
         from terminalvelocity.__main__ import main
+
         main([])

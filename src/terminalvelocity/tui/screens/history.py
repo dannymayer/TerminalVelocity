@@ -17,7 +17,7 @@ class HistoryScreen(ModalScreen[str | None]):
     or ``None`` if cancelled.
     """
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("enter", "load_selected", "Load"),
         Binding("ctrl+l", "clear_history", "Clear history"),
@@ -55,6 +55,7 @@ class HistoryScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         from textual.containers import Vertical
+
         with Vertical(id="history-dialog"):
             yield Static("Query History", id="history-title")
             yield DataTable(id="history-table", cursor_type="row", zebra_stripes=True)

@@ -4,7 +4,19 @@ import re
 import shlex
 from dataclasses import dataclass, field
 
-FIELD_NAMES = {"timestamp", "provider", "service", "tenant_id", "actor", "action", "target", "result", "severity", "correlation_id", "request_id"}
+FIELD_NAMES = {
+    "timestamp",
+    "provider",
+    "service",
+    "tenant_id",
+    "actor",
+    "action",
+    "target",
+    "result",
+    "severity",
+    "correlation_id",
+    "request_id",
+}
 SORT_ALIASES = {"time": "timestamp", "timestamp": "timestamp", "severity": "severity", "provider": "provider"}
 FIELD_TOKEN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*:.*$")
 DEFAULT_SORT_DIRECTION = {"timestamp": True, "severity": True, "provider": False}

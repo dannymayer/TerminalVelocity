@@ -1,4 +1,23 @@
-"""Shared provider interfaces and lightweight HTTP clients for M365 ingestion."""
+"""Shared provider interfaces and lightweight HTTP clients for M365 ingestion.
+
+This module defines **two** distinct provider base classes that serve different roles:
+
+* :class:`BaseProvider` — **synchronous** polling adapter used by providers that rely on
+  the Microsoft Purview Unified Audit Log query API (phase-3 providers).  It uses
+  :class:`GraphAPIClient` (synchronous ``httpx``) and ``time.sleep()`` for poll-wait
+  loops.  Subclass this when writing a new provider that calls
+  ``/security/auditLog/queries``.
+
+* :class:`BaseProviderAdapter` — **asynchronous** adapter for providers that call the
+  Graph API directly via ``httpx.AsyncClient`` (phase-2 providers).  It handles token
+  acquisition, retry logic via ``tenacity``, checkpointing, and optional raw-log caching.
+  Subclass this when writing a new provider that needs async HTTP and built-in retry.
+
+Both share the abstract :class:`ProviderAdapter` interface (``connect`` / ``fetch`` /
+``normalize`` / ``checkpoint``), but their signatures differ slightly to accommodate sync
+vs. async calling conventions.  Choose the right base for your provider based on whether
+the upstream API requires the polling pattern (sync) or direct streaming (async).
+"""
 
 from __future__ import annotations
 
@@ -6,13 +25,21 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import AsyncIterator, Iterable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, overload
 
 import httpx
-from tenacity import AsyncRetrying, before_sleep_log, retry, retry_if_exception, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    AsyncRetrying,
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from terminalvelocity.schema import NormalizedEvent, ProviderCheckpoint
 
@@ -27,6 +54,7 @@ FAILED_QUERY_STATUSES = {"failed", "cancelled", "canceled"}
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
+
 
 class ProviderError(Exception):
     """Base exception raised by provider adapters."""
@@ -64,6 +92,7 @@ class APIRequestError(ProviderError):
 # ---------------------------------------------------------------------------
 # Checkpoint & raw cache (async-style providers)
 # ---------------------------------------------------------------------------
+
 
 class CheckpointStore:
     """Simple JSON checkpoint persistence per provider."""
@@ -118,6 +147,7 @@ class RawLogCache:
 # Synchronous JSON API client (used by phase-3 providers)
 # ---------------------------------------------------------------------------
 
+
 class JSONAPIClient:
     """Minimal JSON API client with tenacity-based retry and pagination."""
 
@@ -130,6 +160,7 @@ class JSONAPIClient:
         opener: Any | None = None,
     ) -> None:
         from urllib import request as urllib_request
+
         self.base_url = base_url.rstrip("/")
         self.headers = dict(headers)
         self.timeout = timeout
@@ -137,15 +168,14 @@ class JSONAPIClient:
 
     def _build_url(self, path: str, params: Mapping[str, Any] | None = None) -> str:
         from urllib import parse
-        if path.startswith("http://") or path.startswith("https://"):
+
+        if path.startswith(("http://", "https://")):
             url = path
         else:
             url = f"{self.base_url}/{path.lstrip('/')}"
         if params:
             clean_params: dict[str, Any] = {
-                key: value
-                for key, value in params.items()
-                if value is not None and value != [] and value != ()
+                key: value for key, value in params.items() if value is not None and value != [] and value != ()
             }
             if clean_params:
                 query = parse.urlencode(clean_params, doseq=True, safe=":,$'()")
@@ -156,6 +186,7 @@ class JSONAPIClient:
     @staticmethod
     def _is_retryable_exception(exc: BaseException) -> bool:
         from urllib import error as urllib_error
+
         if isinstance(exc, APIRequestError) and exc.status_code in RETRYABLE_STATUS_CODES:
             return True
         if isinstance(exc, urllib_error.URLError):
@@ -168,8 +199,12 @@ class JSONAPIClient:
         stop=stop_after_attempt(5),
         reraise=True,
     )
-    def _request(self, method: str, path: str, *, params: Mapping[str, Any] | None = None, body: Any | None = None) -> Any:
-        from urllib import error as urllib_error, request as urllib_request
+    def _request(
+        self, method: str, path: str, *, params: Mapping[str, Any] | None = None, body: Any | None = None
+    ) -> Any:
+        from urllib import error as urllib_error
+        from urllib import request as urllib_request
+
         url = self._build_url(path, params)
         payload: bytes | None = None
         headers = dict(self.headers)
@@ -212,7 +247,7 @@ class JSONAPIClient:
             raise
 
     def iter_collection(self, path: str, *, params: Mapping[str, Any] | None = None) -> Iterator[dict[str, Any]]:
-        next_path = path
+        next_path: str | None = path
         next_params = dict(params or {})
         while next_path:
             payload = self.get(next_path, params=next_params)
@@ -228,11 +263,13 @@ class JSONAPIClient:
 class GraphAPIClient(JSONAPIClient):
     """Microsoft Graph client configured for bearer authentication."""
 
-    def __init__(self, access_token: str, *, timeout: float = 30.0, base_url: str = "https://graph.microsoft.com") -> None:
+    def __init__(
+        self, access_token: str, *, timeout: float = 30.0, base_url: str = "https://graph.microsoft.com"
+    ) -> None:
         super().__init__(
             base_url=base_url,
             headers={
-                "Authorization": f"******",
+                "Authorization": "******",
                 "Accept": "application/json",
                 "User-Agent": "terminalvelocity/0.1.0",
             },
@@ -259,15 +296,18 @@ class MCASClient(JSONAPIClient):
 # Synchronous base provider (used by phase-3 providers)
 # ---------------------------------------------------------------------------
 
-# TODO(naming): the codebase has two abstract provider base classes:
-#   - BaseProvider (sync, used by phase-3 providers below)
-#   - BaseProviderAdapter (async, used by phase-2 providers further down)
-# The similar names are confusing.  Consider renaming to SyncBaseProvider /
-# AsyncBaseProvider (or SyncProviderAdapter / AsyncProviderAdapter) and
-# documenting the distinction in a top-level docstring so contributors
-# choose the right base class.
+
 class BaseProvider(ABC):
-    """Common provider contract for time-window polling adapters."""
+    """Synchronous provider base for time-window polling adapters (phase-3).
+
+    Subclass this when your provider targets the Microsoft Purview Unified Audit Log
+    query API (``/security/auditLog/queries``).  The polling loop uses ``time.sleep()``
+    intentionally because it runs in a thread-pool executor, not directly on the asyncio
+    event loop.
+
+    For providers that call other Graph API endpoints asynchronously, use
+    :class:`BaseProviderAdapter` instead.
+    """
 
     provider_name = "provider"
     service_name = "service"
@@ -286,6 +326,22 @@ class BaseProvider(ABC):
         self.raw_cache_path = Path(raw_cache_path) if raw_cache_path else None
         self._checkpoint = checkpoint_state or ProviderCheckpoint(provider=self.provider_name)
         self._last_fetch_count = 0
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: datetime) -> datetime: ...
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: str) -> datetime: ...
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: None) -> None: ...
+
+    @overload
+    @staticmethod
+    def ensure_utc(value: datetime | str | None) -> datetime | None: ...
 
     @staticmethod
     def ensure_utc(value: datetime | str | None) -> datetime | None:
@@ -313,7 +369,13 @@ class BaseProvider(ABC):
                 handle.write(json.dumps(entry, default=str, sort_keys=True))
                 handle.write("\n")
 
-    def _advance_checkpoint(self, *, cursor: str | None = None, last_event_time: datetime | str | None = None, metadata: dict[str, Any] | None = None) -> None:
+    def _advance_checkpoint(
+        self,
+        *,
+        cursor: str | None = None,
+        last_event_time: datetime | str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         if cursor is not None:
             self._checkpoint.cursor = cursor
         normalized_time = self.ensure_utc(last_event_time)
@@ -326,10 +388,12 @@ class BaseProvider(ABC):
 
     def checkpoint(self) -> ProviderCheckpoint:
         self._checkpoint.provider = self.provider_name
-        self._checkpoint.metadata.update({
-            "service": self.service_name,
-            "last_fetch_count": self._last_fetch_count,
-        })
+        self._checkpoint.metadata.update(
+            {
+                "service": self.service_name,
+                "last_fetch_count": self._last_fetch_count,
+            }
+        )
         return self._checkpoint.model_copy(deep=True)
 
     @abstractmethod
@@ -386,19 +450,19 @@ class AuditLogQueryProvider(BaseProvider):
 
     def _poll_audit_query(self, query_id: str) -> dict[str, Any]:
         deadline = time.monotonic() + self.query_timeout.total_seconds()
-        last_payload: dict[str, Any] = {}
         while time.monotonic() <= deadline:
             payload = self.graph_client.get(f"{self.audit_query_path}/{query_id}")
             if not isinstance(payload, dict):
                 raise ProviderFetchError(f"{self.provider_name} audit query {query_id} returned an invalid payload")
-            last_payload = payload
             status = str(payload.get("status", "unknown")).strip().lower()
             if status in TERMINAL_QUERY_STATUSES:
                 return payload
             if status in FAILED_QUERY_STATUSES:
                 raise ProviderFetchError(f"{self.provider_name} audit query {query_id} failed with status {status}")
             if status not in PENDING_QUERY_STATUSES:
-                raise ProviderFetchError(f"{self.provider_name} audit query {query_id} returned unexpected status {status}")
+                raise ProviderFetchError(
+                    f"{self.provider_name} audit query {query_id} returned unexpected status {status}"
+                )
             # TODO(blocking): time.sleep() here blocks the calling thread for
             # the full poll interval.  If this synchronous provider is ever
             # called from an async context (e.g. via run_in_executor), consider
@@ -408,7 +472,9 @@ class AuditLogQueryProvider(BaseProvider):
         raise ProviderFetchError(f"{self.provider_name} audit query {query_id} timed out after {self.query_timeout}")
 
     def _fetch_audit_records(self, query_id: str) -> list[dict[str, Any]]:
-        return list(self.graph_client.iter_collection(f"{self.audit_query_path}/{query_id}/records", params={"$top": 1000}))
+        return list(
+            self.graph_client.iter_collection(f"{self.audit_query_path}/{query_id}/records", params={"$top": 1000})
+        )
 
     def fetch(self, *, since: datetime, until: datetime) -> list[dict[str, Any]]:
         query_id = self._create_audit_query(since, until)
@@ -442,6 +508,7 @@ class AuditLogQueryProvider(BaseProvider):
 # ---------------------------------------------------------------------------
 # Async base provider adapter (used by phase-2 providers in main)
 # ---------------------------------------------------------------------------
+
 
 class ProviderAdapter(ABC):
     """Shared asynchronous provider interface."""
@@ -593,9 +660,9 @@ class BaseProviderAdapter(ProviderAdapter):
             before_sleep=before_sleep_log(LOGGER, logging.WARNING),
         ):
             with attempt:
-                token = await self._get_access_token(scope)
+                await self._get_access_token(scope)
                 request_headers = {
-                    "Authorization": f"******",
+                    "Authorization": "******",
                     "Accept": "application/json",
                     "User-Agent": "TerminalVelocity/0.1.0",
                 }
@@ -663,6 +730,7 @@ class BaseProviderAdapter(ProviderAdapter):
 # ---------------------------------------------------------------------------
 # Shared utilities
 # ---------------------------------------------------------------------------
+
 
 def ensure_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)

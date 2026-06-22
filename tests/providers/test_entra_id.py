@@ -15,9 +15,40 @@ def test_entra_id_fetch_normalizes_signin_and_audit_logs(state_dir) -> None:
         if path.endswith("/oauth2/v2.0/token"):
             return httpx.Response(200, json={"access_token": "token", "expires_in": 3600})
         if path.endswith("/auditLogs/signIns"):
-            return httpx.Response(200, json={"value": [{"id": "signin-1", "createdDateTime": "2025-01-01T00:08:00Z", "userPrincipalName": "user@contoso.com", "resourceDisplayName": "Microsoft Graph", "correlationId": "corr-3", "status": {"errorCode": 0}, "riskLevelAggregated": "none"}]})
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": "signin-1",
+                            "createdDateTime": "2025-01-01T00:08:00Z",
+                            "userPrincipalName": "user@contoso.com",
+                            "resourceDisplayName": "Microsoft Graph",
+                            "correlationId": "corr-3",
+                            "status": {"errorCode": 0},
+                            "riskLevelAggregated": "none",
+                        }
+                    ]
+                },
+            )
         if path.endswith("/auditLogs/directoryAudits"):
-            return httpx.Response(200, json={"value": [{"id": "audit-2", "activityDateTime": "2025-01-01T00:09:00Z", "activityDisplayName": "Add application", "category": "ApplicationManagement", "loggedByService": "Core Directory", "initiatedBy": {"app": {"displayName": "Terraform"}}, "targetResources": [{"displayName": "Contoso App"}], "result": "success"}]})
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": "audit-2",
+                            "activityDateTime": "2025-01-01T00:09:00Z",
+                            "activityDisplayName": "Add application",
+                            "category": "ApplicationManagement",
+                            "loggedByService": "Core Directory",
+                            "initiatedBy": {"app": {"displayName": "Terraform"}},
+                            "targetResources": [{"displayName": "Contoso App"}],
+                            "result": "success",
+                        }
+                    ]
+                },
+            )
         # New endpoints return empty lists so the test stays focused on the original two
         if path.endswith("/auditLogs/servicePrincipals"):
             return httpx.Response(200, json={"value": []})
@@ -26,9 +57,17 @@ def test_entra_id_fetch_normalizes_signin_and_audit_logs(state_dir) -> None:
         raise AssertionError(f"Unexpected request: {request.method} {request.url}")
 
     async def scenario() -> None:
-        provider = EntraIdProvider(tenant_id="tenant-id", client_id="client-id", client_secret="client-secret", checkpoint_store=CheckpointStore(state_dir / "checkpoints"), http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        provider = EntraIdProvider(
+            tenant_id="tenant-id",
+            client_id="client-id",
+            client_secret="client-secret",
+            checkpoint_store=CheckpointStore(state_dir / "checkpoints"),
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
         await provider.connect()
-        events = await provider.fetch(start_time=datetime(2025, 1, 1, tzinfo=UTC), end_time=datetime(2025, 1, 1, 1, tzinfo=UTC))
+        events = await provider.fetch(
+            start_time=datetime(2025, 1, 1, tzinfo=UTC), end_time=datetime(2025, 1, 1, 1, tzinfo=UTC)
+        )
         assert len(events) == 2
         sign_in = next(event for event in events if event.action == "sign-in")
         assert sign_in.result == "success"

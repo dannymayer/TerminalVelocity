@@ -9,11 +9,17 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from terminalvelocity.schema import NormalizedEvent
+
+LOGGER = logging.getLogger(__name__)
+
+# Reject files larger than 256 MB to protect against memory exhaustion.
+_MAX_FILE_BYTES = 256 * 1024 * 1024
 
 
 class FileIngestionError(Exception):
@@ -46,10 +52,12 @@ def ingest_file(
     if not p.exists():
         raise FileIngestionError(f"File not found: {path}")
 
-    # TODO(security/performance): add an upper bound on file size before
-    # reading into memory (e.g. reject files > 256 MB).  Large or malicious
-    # files could exhaust heap memory.  Consider streaming JSONL parsing for
-    # very large inputs instead of reading the whole file at once.
+    file_size = p.stat().st_size
+    if file_size > _MAX_FILE_BYTES:
+        raise FileIngestionError(
+            f"File too large to ingest ({file_size / 1024 / 1024:.1f} MB > "
+            f"{_MAX_FILE_BYTES // 1024 // 1024} MB limit): {path}"
+        )
 
     suffix = p.suffix.lower()
 
@@ -63,23 +71,25 @@ def ingest_file(
         # Auto-detect: try JSONL first (line-delimited), then JSON array
         try:
             events = _ingest_jsonl(p, field_mappings=field_mappings)
-        except Exception:
-            # TODO(error-handling): the bare `except Exception` swallows the
-            # JSONL parse error before trying JSON.  Log the original exception
-            # at DEBUG level so operators can diagnose misformatted files.
+        except (json.JSONDecodeError, FileIngestionError, ValueError) as jsonl_exc:
+            LOGGER.debug("JSONL parse failed for %s (%s), trying JSON array", path, jsonl_exc)
             try:
                 events = _ingest_json(p, field_mappings=field_mappings)
-            except Exception as exc:
+            except (json.JSONDecodeError, ValueError) as exc:
                 raise FileIngestionError(f"Cannot parse {path}: unsupported or unrecognised format") from exc
 
     if provider_override or service_override:
         events = [
-            event.model_copy(update={
-                k: v for k, v in {
-                    "provider": provider_override,
-                    "service": service_override,
-                }.items() if v
-            })
+            event.model_copy(
+                update={
+                    k: v
+                    for k, v in {
+                        "provider": provider_override,
+                        "service": service_override,
+                    }.items()
+                    if v
+                }
+            )
             for event in events
         ]
     return events
@@ -88,6 +98,7 @@ def ingest_file(
 # ---------------------------------------------------------------------------
 # Internal format parsers
 # ---------------------------------------------------------------------------
+
 
 def _ingest_jsonl(path: Path, *, field_mappings: dict[str, str] | None = None) -> list[NormalizedEvent]:
     events: list[NormalizedEvent] = []
@@ -152,14 +163,18 @@ def _parse_payload(
     now = datetime.now(UTC).isoformat()
     return NormalizedEvent(
         timestamp=payload.get("timestamp")
-            or payload.get("time")
-            or payload.get("createdDateTime")
-            or payload.get("eventTimestamp")
-            or now,
+        or payload.get("time")
+        or payload.get("createdDateTime")
+        or payload.get("eventTimestamp")
+        or now,
         provider=payload.get("provider") or payload.get("source") or "imported",
         service=payload.get("service") or payload.get("category") or "imported",
         actor=payload.get("actor") or payload.get("user") or payload.get("userPrincipalName") or payload.get("caller"),
-        action=payload.get("action") or payload.get("operation") or payload.get("operationName") or payload.get("activityDisplayName") or "unknown",
+        action=payload.get("action")
+        or payload.get("operation")
+        or payload.get("operationName")
+        or payload.get("activityDisplayName")
+        or "unknown",
         target=payload.get("target") or payload.get("resource") or payload.get("objectId") or payload.get("resourceId"),
         result=payload.get("result") or payload.get("status"),
         severity=payload.get("severity") or payload.get("level"),

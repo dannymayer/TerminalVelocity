@@ -7,8 +7,6 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
-import pytest
-
 from terminalvelocity.config import AppConfig, FieldMapping
 
 
@@ -25,8 +23,9 @@ class AppConfigDefaultsTests(unittest.TestCase):
 
 
 class AppConfigYAMLTests(unittest.TestCase):
-    def test_load_from_yaml(self, tmp_path: Path = None) -> None:
-        import tempfile, os
+    def test_load_from_yaml(self, tmp_path: Path | None = None) -> None:
+        import os
+        import tempfile
 
         yaml_content = textwrap.dedent("""\
             poll_interval_seconds: 30
@@ -73,6 +72,7 @@ class AppConfigYAMLTests(unittest.TestCase):
 class AppConfigEnvVarTests(unittest.TestCase):
     def test_env_vars_add_tenant_when_none_configured(self) -> None:
         import os
+
         env = {
             "TERMINALVELOCITY_TENANT_ID": "env-tenant",
             "TERMINALVELOCITY_CLIENT_ID": "env-client",
@@ -83,10 +83,13 @@ class AppConfigEnvVarTests(unittest.TestCase):
         self.assertEqual(len(cfg.tenants), 1)
         self.assertEqual(cfg.tenants[0].tenant_id, "env-tenant")
         self.assertEqual(cfg.tenants[0].client_id, "env-client")
-        self.assertEqual(cfg.tenants[0].client_secret, "env-secret")
+        self.assertEqual(cfg.tenants[0].client_secret.get_secret_value(), "env-secret")
 
     def test_env_vars_do_not_duplicate_existing_tenant(self) -> None:
-        import os, tempfile, textwrap
+        import os
+        import tempfile
+        import textwrap
+
         yaml_content = textwrap.dedent("""\
             tenants:
               - tenant_id: "env-tenant"
@@ -112,6 +115,7 @@ class AppConfigEnvVarTests(unittest.TestCase):
 
     def test_partial_env_vars_do_not_add_tenant(self) -> None:
         import os
+
         # Only two of three vars set — no tenant should be added
         env = {
             "TERMINALVELOCITY_TENANT_ID": "env-tenant",

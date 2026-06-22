@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from terminalvelocity.providers.base import BaseProviderAdapter, ProviderCheckpoint, isoformat_z, map_result
 from terminalvelocity.schema import NormalizedEvent
@@ -33,60 +34,95 @@ class DefenderXdrProvider(BaseProviderAdapter):
     async def connect(self) -> None:
         await self._get_access_token(self.provider_scope)
         await self._get_access_token(self.defender_scope)
-        await self._request_json("GET", self.connection_test_url, scope=self.provider_scope, params=self.connection_test_params)
+        await self._request_json(
+            "GET", self.connection_test_url, scope=self.provider_scope, params=self.connection_test_params
+        )
 
-    async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
+    async def fetch(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)
         raw_events: list[dict[str, Any]] = []
-        raw_events.extend([item async for item in self._iterate_collection(
-            "https://graph.microsoft.com/v1.0/security/incidents",
-            scope=self.provider_scope,
-            params={"$filter": f"lastUpdateDateTime ge {isoformat_z(start)} and lastUpdateDateTime le {isoformat_z(end)}", "$top": 100},
-        )])
-        raw_events.extend([item async for item in self._iterate_collection(
-            "https://graph.microsoft.com/v1.0/security/alerts_v2",
-            scope=self.provider_scope,
-            params={"$filter": f"createdDateTime ge {isoformat_z(start)} and createdDateTime le {isoformat_z(end)}", "$top": 100},
-        )])
+        raw_events.extend(
+            [
+                item
+                async for item in self._iterate_collection(
+                    "https://graph.microsoft.com/v1.0/security/incidents",
+                    scope=self.provider_scope,
+                    params={
+                        "$filter": f"lastUpdateDateTime ge {isoformat_z(start)} and lastUpdateDateTime le {isoformat_z(end)}",
+                        "$top": 100,
+                    },
+                )
+            ]
+        )
+        raw_events.extend(
+            [
+                item
+                async for item in self._iterate_collection(
+                    "https://graph.microsoft.com/v1.0/security/alerts_v2",
+                    scope=self.provider_scope,
+                    params={
+                        "$filter": f"createdDateTime ge {isoformat_z(start)} and createdDateTime le {isoformat_z(end)}",
+                        "$top": 100,
+                    },
+                )
+            ]
+        )
         machine_ids = self.machine_ids or await self._discover_machine_ids(start)
         for machine_id in machine_ids:
             params: dict[str, Any] = {"$top": 100, "fromValue": isoformat_z(start), "toValue": isoformat_z(end)}
             if self.timeline_event_types:
                 params["eventType"] = ",".join(self.timeline_event_types)
-            raw_events.extend([item async for item in self._iterate_collection(
-                f"{self.defender_base_url}/machines/{machine_id}/timeline",
-                scope=self.defender_scope,
-                params=params,
-            )])
+            raw_events.extend(
+                [
+                    item
+                    async for item in self._iterate_collection(
+                        f"{self.defender_base_url}/machines/{machine_id}/timeline",
+                        scope=self.defender_scope,
+                        params=params,
+                    )
+                ]
+            )
 
         if self.include_vulnerabilities:
-            vulns = [item async for item in self._iterate_collection(
-                f"{self.defender_base_url}/vulnerabilities",
-                scope=self.defender_scope,
-                params={"$top": 100},
-            )]
+            vulns = [
+                item
+                async for item in self._iterate_collection(
+                    f"{self.defender_base_url}/vulnerabilities",
+                    scope=self.defender_scope,
+                    params={"$top": 100},
+                )
+            ]
             for item in vulns:
                 item["_tv_source"] = "vulnerability"
             raw_events.extend(vulns)
 
-            machine_vulns = [item async for item in self._iterate_collection(
-                f"{self.defender_base_url}/machines/SoftwareVulnerabilitiesByMachine",
-                scope=self.defender_scope,
-                params={"$top": 100},
-            )]
+            machine_vulns = [
+                item
+                async for item in self._iterate_collection(
+                    f"{self.defender_base_url}/machines/SoftwareVulnerabilitiesByMachine",
+                    scope=self.defender_scope,
+                    params={"$top": 100},
+                )
+            ]
             for item in machine_vulns:
                 item["_tv_source"] = "machine_vulnerability"
             raw_events.extend(machine_vulns)
 
         self.cache_raw_payloads(raw_events)
         events = [self.normalize(item) for item in raw_events]
-        last_event_time = max((event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC))
-        await self.checkpoint(ProviderCheckpoint(
-            provider=self.provider_name,
-            cursor=isoformat_z(end),
-            last_event_time=last_event_time,
-            metadata={"machine_ids": machine_ids, "include_vulnerabilities": self.include_vulnerabilities},
-        ))
+        last_event_time = max(
+            (event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC)
+        )
+        await self.checkpoint(
+            ProviderCheckpoint(
+                provider=self.provider_name,
+                cursor=isoformat_z(end),
+                last_event_time=last_event_time,
+                metadata={"machine_ids": machine_ids, "include_vulnerabilities": self.include_vulnerabilities},
+            )
+        )
         return events
 
     def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
@@ -95,8 +131,10 @@ class DefenderXdrProvider(BaseProviderAdapter):
         # Fleet-wide CVE record
         if source == "vulnerability":
             cvss = payload.get("cvssV3") or payload.get("cvssV2")
-            severity = payload.get("severity") or ("critical" if payload.get("publicExploit") else None) or (
-                "high" if cvss and float(str(cvss).split()[0]) >= 7.0 else "medium"
+            severity = (
+                payload.get("severity")
+                or ("critical" if payload.get("publicExploit") else None)
+                or ("high" if cvss and float(str(cvss).split()[0]) >= 7.0 else "medium")
             )
             return NormalizedEvent(
                 timestamp=payload.get("publishedOn") or payload.get("updatedOn") or datetime.now(UTC).isoformat(),
@@ -154,7 +192,9 @@ class DefenderXdrProvider(BaseProviderAdapter):
                 actor=payload.get("assignedTo") or payload.get("detectorId"),
                 action=str(payload.get("category") or payload.get("title") or "alert"),
                 target=payload.get("title") or payload.get("resource") or payload.get("hostStates"),
-                result=map_result(payload.get("status") or payload.get("classification") or payload.get("determination")),
+                result=map_result(
+                    payload.get("status") or payload.get("classification") or payload.get("determination")
+                ),
                 severity=payload.get("severity"),
                 correlation_id=payload.get("correlationId") or str(payload.get("incidentId") or "") or None,
                 request_id=payload.get("id"),
@@ -165,9 +205,15 @@ class DefenderXdrProvider(BaseProviderAdapter):
             provider=self.provider_name,
             service="Microsoft Defender for Endpoint Timeline",
             tenant_id=self.tenant_id,
-            actor=payload.get("initiatingProcessAccountName") or payload.get("accountName") or payload.get("initiatingProcessAccountUpn"),
+            actor=payload.get("initiatingProcessAccountName")
+            or payload.get("accountName")
+            or payload.get("initiatingProcessAccountUpn"),
             action=str(payload.get("eventType") or payload.get("actionType") or "timeline"),
-            target=payload.get("fileName") or payload.get("processCommandLine") or payload.get("registryKey") or payload.get("remoteUrl") or payload.get("deviceName"),
+            target=payload.get("fileName")
+            or payload.get("processCommandLine")
+            or payload.get("registryKey")
+            or payload.get("remoteUrl")
+            or payload.get("deviceName"),
             result=map_result(payload.get("status")),
             severity=payload.get("severity"),
             correlation_id=payload.get("reportId") or payload.get("correlationId"),
@@ -176,9 +222,12 @@ class DefenderXdrProvider(BaseProviderAdapter):
         )
 
     async def _discover_machine_ids(self, start_time: datetime) -> list[str]:
-        machines = [item async for item in self._iterate_collection(
-            f"{self.defender_base_url}/machines",
-            scope=self.defender_scope,
-            params={"$filter": f"lastSeen ge {isoformat_z(start_time)}", "$top": 100},
-        )]
+        machines = [
+            item
+            async for item in self._iterate_collection(
+                f"{self.defender_base_url}/machines",
+                scope=self.defender_scope,
+                params={"$filter": f"lastSeen ge {isoformat_z(start_time)}", "$top": 100},
+            )
+        ]
         return [str(item["id"]) for item in machines if item.get("id")]

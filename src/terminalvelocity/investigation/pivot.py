@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Iterable
 
 from terminalvelocity.models import NormalizedEvent
 
@@ -67,9 +67,9 @@ class PivotAnalyzer:
         session_values = {value.casefold() for value in (seed.correlation_id, seed.request_id) if value}
         event_values = {value.casefold() for value in (event.correlation_id, event.request_id) if value}
         if session_values.intersection(event_values):
-            return 'session'
+            return "session"
         if seed.actor and event.actor and seed.actor.casefold() == event.actor.casefold():
-            return 'actor'
+            return "actor"
         if seed.target and event.target and seed.target.casefold() == event.target.casefold():
-            return 'target'
+            return "target"
         return None

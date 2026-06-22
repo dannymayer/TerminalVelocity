@@ -6,7 +6,6 @@ import unittest
 
 from terminalvelocity.providers.registry import registry as provider_registry
 
-
 EXPECTED_ALIASES = {
     # Original 4
     "entra": "EntraIdProvider",

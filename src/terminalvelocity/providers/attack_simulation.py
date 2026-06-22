@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any, Mapping
+from typing import Any
 
 from terminalvelocity.providers.base import BaseProviderAdapter, ProviderCheckpoint, isoformat_z, map_result
 from terminalvelocity.schema import NormalizedEvent
@@ -45,17 +46,22 @@ class AttackSimulationProvider(BaseProviderAdapter):
     provider_name = "attack_simulation"
     provider_scope = "https://graph.microsoft.com/.default"
     connection_test_url = "https://graph.microsoft.com/v1.0/security/attackSimulation/simulations"
-    connection_test_params = {"$top": 1}
+    connection_test_params = {"$top": 1}  # noqa: RUF012
 
-    async def fetch(self, start_time: datetime | None = None, end_time: datetime | None = None) -> list[NormalizedEvent]:
+    async def fetch(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> list[NormalizedEvent]:
         start, end, checkpoint = await self.resolve_window(start_time, end_time)
         time_filter = f"launchDateTime ge {isoformat_z(start)} and launchDateTime le {isoformat_z(end)}"
 
-        simulations = [item async for item in self._iterate_collection(
-            "https://graph.microsoft.com/v1.0/security/attackSimulation/simulations",
-            scope=self.provider_scope,
-            params={"$filter": time_filter, "$top": 100},
-        )]
+        simulations = [
+            item
+            async for item in self._iterate_collection(
+                "https://graph.microsoft.com/v1.0/security/attackSimulation/simulations",
+                scope=self.provider_scope,
+                params={"$filter": time_filter, "$top": 100},
+            )
+        ]
 
         raw_events: list[dict[str, Any]] = []
         for simulation in simulations:
@@ -63,29 +69,38 @@ class AttackSimulationProvider(BaseProviderAdapter):
             sim_name = simulation.get("displayName") or sim_id
             if not sim_id:
                 continue
-            users = [item async for item in self._iterate_collection(
-                f"https://graph.microsoft.com/v1.0/security/attackSimulation/simulations/{sim_id}/simulationUsers",
-                scope=self.provider_scope,
-                params={"$top": 200},
-            )]
+            users = [
+                item
+                async for item in self._iterate_collection(
+                    f"https://graph.microsoft.com/v1.0/security/attackSimulation/simulations/{sim_id}/simulationUsers",
+                    scope=self.provider_scope,
+                    params={"$top": 200},
+                )
+            ]
             for user in users:
                 user["_tv_simulation_id"] = sim_id
                 user["_tv_simulation_name"] = sim_name
-                user["_tv_simulation_technique"] = simulation.get("attackTechnique") or simulation.get("simulationAttackType")
+                user["_tv_simulation_technique"] = simulation.get("attackTechnique") or simulation.get(
+                    "simulationAttackType"
+                )
                 raw_events.append(user)
 
         self.cache_raw_payloads(raw_events)
         events = [self.normalize(item) for item in raw_events]
-        last_event_time = max((event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC))
-        await self.checkpoint(ProviderCheckpoint(
-            provider=self.provider_name,
-            cursor=isoformat_z(end),
-            last_event_time=last_event_time,
-            metadata={
-                "simulation_count": len(simulations),
-                "user_result_count": len(raw_events),
-            },
-        ))
+        last_event_time = max(
+            (event.timestamp for event in events), default=checkpoint.last_event_time or end.astimezone(UTC)
+        )
+        await self.checkpoint(
+            ProviderCheckpoint(
+                provider=self.provider_name,
+                cursor=isoformat_z(end),
+                last_event_time=last_event_time,
+                metadata={
+                    "simulation_count": len(simulations),
+                    "user_result_count": len(raw_events),
+                },
+            )
+        )
         return events
 
     def normalize(self, payload: Mapping[str, Any]) -> NormalizedEvent:
@@ -114,7 +129,10 @@ class AttackSimulationProvider(BaseProviderAdapter):
         action = f"{sim_name}" + (f" ({technique})" if technique else "")
 
         return NormalizedEvent(
-            timestamp=payload.get("reportedPhishDateTime") or payload.get("lastEventDateTime") or payload.get("assignedDateTime") or datetime.now(UTC).isoformat(),
+            timestamp=payload.get("reportedPhishDateTime")
+            or payload.get("lastEventDateTime")
+            or payload.get("assignedDateTime")
+            or datetime.now(UTC).isoformat(),
             provider=self.provider_name,
             service="Microsoft Attack Simulation Training",
             tenant_id=self.tenant_id,

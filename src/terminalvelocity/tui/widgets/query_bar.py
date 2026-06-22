@@ -5,8 +5,8 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.message import Message
-from textual.widgets import Input, Select, Static
 from textual.widget import Widget
+from textual.widgets import Input, Select, Static
 
 TIME_SCOPE_OPTIONS = [
     ("All time", "all"),
@@ -29,18 +29,20 @@ class QueryBar(Widget):
     def compose(self) -> ComposeResult:
         yield Static("Query + scope", id="query-title")
         with Horizontal(id="query-controls"):
-            yield Input(placeholder="Search events or field:value  tag:label  show:archived  sort:severity", id="query-input")
+            yield Input(
+                placeholder="Search events or field:value  tag:label  show:archived  sort:severity", id="query-input"
+            )
             yield Select(TIME_SCOPE_OPTIONS, value="24h", allow_blank=False, id="time-scope")
         yield Static("Ready", id="query-status")
 
     def on_input_changed(self, _: Input.Changed) -> None:
-        self.post_message(self.FilterChanged(self.query, self.scope))
+        self.post_message(self.FilterChanged(self.query_text, self.scope))
 
     def on_select_changed(self, _: Select.Changed) -> None:
-        self.post_message(self.FilterChanged(self.query, self.scope))
+        self.post_message(self.FilterChanged(self.query_text, self.scope))
 
     @property
-    def query(self) -> str:
+    def query_text(self) -> str:
         return self.query_one("#query-input", Input).value.strip()
 
     @property

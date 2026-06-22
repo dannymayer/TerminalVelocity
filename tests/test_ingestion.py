@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from terminalvelocity.ingestion import ingest_file, FileIngestionError
+from terminalvelocity.ingestion import FileIngestionError, ingest_file
 from terminalvelocity.models import NormalizedEvent
 
 
@@ -106,6 +106,8 @@ class IngestJSONArrayTests(unittest.TestCase):
 
 class IngestCSVTests(unittest.TestCase):
     def test_ingest_csv(self) -> None:
+        import os
+
         rows = [
             {
                 "timestamp": "2024-01-01T00:00:00Z",
@@ -119,7 +121,7 @@ class IngestCSVTests(unittest.TestCase):
             }
         ]
         path = _write_temp(".csv", "")
-        import os; os.unlink(path)
+        os.unlink(path)
         path = _write_temp(".csv", "")
         with open(path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))

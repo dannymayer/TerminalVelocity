@@ -143,18 +143,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # Auto-enable live mode when credentials are available in the environment
     if not args.live and not args.input:
-        _env_creds = all([
-            os.environ.get("TERMINALVELOCITY_TENANT_ID"),
-            os.environ.get("TERMINALVELOCITY_CLIENT_ID"),
-            os.environ.get("TERMINALVELOCITY_CLIENT_SECRET"),
-        ])
+        _env_creds = all(
+            [
+                os.environ.get("TERMINALVELOCITY_TENANT_ID"),
+                os.environ.get("TERMINALVELOCITY_CLIENT_ID"),
+                os.environ.get("TERMINALVELOCITY_CLIENT_SECRET"),
+            ]
+        )
         if _env_creds:
             args.live = True
 
     # File ingestion
     input_events = None
     if args.input:
-        from terminalvelocity.ingestion import ingest_file, FileIngestionError
+        from terminalvelocity.ingestion import FileIngestionError, ingest_file
 
         # Resolve field mappings from config for the given provider
         field_mappings: dict[str, str] | None = None

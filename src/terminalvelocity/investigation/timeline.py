@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Iterable
 
 from terminalvelocity.models import NormalizedEvent
 
@@ -80,31 +80,28 @@ class TimelineBuilder:
     @staticmethod
     def _timeline_id(event: NormalizedEvent, index: int) -> str:
         if event.correlation_id:
-            return f'corr:{event.correlation_id}'
+            return f"corr:{event.correlation_id}"
         if event.request_id:
-            return f'req:{event.request_id}'
+            return f"req:{event.request_id}"
         if event.actor:
-            return f'actor:{event.actor.casefold()}:{index}'
-        return f'timeline:{index}'
+            return f"actor:{event.actor.casefold()}:{index}"
+        return f"timeline:{index}"
 
     @staticmethod
     def _timeline_keys(event: NormalizedEvent) -> set[str]:
         keys: set[str] = set()
         if event.correlation_id:
-            keys.add(f'corr:{event.correlation_id}')
+            keys.add(f"corr:{event.correlation_id}")
         if event.request_id:
-            keys.add(f'req:{event.request_id}')
+            keys.add(f"req:{event.request_id}")
         if event.actor:
-            keys.add(f'actor:{event.actor.casefold()}')
+            keys.add(f"actor:{event.actor.casefold()}")
         return keys
 
     @staticmethod
     def _refresh_metadata(timeline: InvestigationTimeline) -> None:
         correlation_ids = {
-            value
-            for event in timeline.events
-            for value in (event.correlation_id, event.request_id)
-            if value
+            value for event in timeline.events for value in (event.correlation_id, event.request_id) if value
         }
         actors = {event.actor for event in timeline.events if event.actor}
         timeline.correlation_ids = tuple(sorted(correlation_ids))

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -38,7 +38,7 @@ class QueryHistoryStore:
         """Save a query execution. Empty queries are ignored."""
         if not query.strip():
             return
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.connection.execute(
             "INSERT INTO query_history(query, scope, result_count, executed_at) VALUES (?, ?, ?, ?)",
             (query, scope, result_count, now),
@@ -58,9 +58,10 @@ class QueryHistoryStore:
         self.connection.commit()
 
     def close(self) -> None:
-        # TODO(resource-management): close() exists but is never called in the
-        # main application path (TerminalVelocityApp holds the store for its
-        # lifetime and does not call close() on shutdown).  Either call close()
-        # in the app's on_unmount hook or implement __enter__/__exit__ so the
-        # store can be used as a context manager.
         self.connection.close()
+
+    def __enter__(self) -> QueryHistoryStore:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()

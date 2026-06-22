@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Iterable
 
 from terminalvelocity.schema import NormalizedEvent
 
@@ -113,10 +113,14 @@ class CrossProviderEnricher:
             for ref_id in filter(None, (event.correlation_id, event.request_id)):
                 matching_risk_ids.extend(risk_index.get(ref_id, []))
             if matching_risk_ids:
-                linked.append(event.model_copy(update={
-                    "_tv_risk_linked": True,
-                    "_tv_risk_event_ids": list(dict.fromkeys(matching_risk_ids)),
-                }))
+                linked.append(
+                    event.model_copy(
+                        update={
+                            "_tv_risk_linked": True,
+                            "_tv_risk_event_ids": list(dict.fromkeys(matching_risk_ids)),
+                        }
+                    )
+                )
             else:
                 linked.append(event)
         return linked

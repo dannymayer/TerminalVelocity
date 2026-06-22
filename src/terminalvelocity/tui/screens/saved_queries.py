@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Input, Label, Static
-from textual.containers import Horizontal, Vertical
-from textual.message import Message
 
 from terminalvelocity.search.saved_queries import SavedQuery, SavedQueryStore
 
@@ -19,7 +18,7 @@ class SavedQueriesScreen(ModalScreen[str | None]):
     or ``None`` if cancelled.
     """
 
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("escape", "close", "Close"),
         Binding("enter", "load_selected", "Load"),
         Binding("ctrl+s", "save_current", "Save"),
